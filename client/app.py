@@ -9,6 +9,8 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from tkinter import END, DISABLED, NORMAL, Button, Entry, Label, StringVar, Text, Tk, messagebox
+from tkinter.scrolledtext import ScrolledText
 
 import requests
 
@@ -30,7 +32,7 @@ def is_admin() -> bool:
 def machine_guid() -> str:
     try:
         output = subprocess.check_output(
-            ["reg", "stop", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"],
+            ["reg", "query", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"],
             text=True,
             stderr=subprocess.DEVNULL,
             encoding="utf-8",
@@ -95,6 +97,20 @@ def request_approval(args: argparse.Namespace) -> None:
     print("已提交审批申请，请联系管理员审批。")
 
 
+def request_approval_data(api: str, note: str = "") -> dict:
+    did = device_id()
+    payload = {
+        "deviceId": did,
+        "hostname": platform.node(),
+        "username": getpass.getuser(),
+        "note": note or "",
+    }
+    resp = requests.post(f"{api.rstrip('/')}/api/request", json=payload, timeout=20)
+    data = resp.json()
+    resp.raise_for_status()
+    return data
+
+
 def status(args: argparse.Namespace) -> bool:
     api = api_base_from_args(args)
     did = device_id()
@@ -104,6 +120,14 @@ def status(args: argparse.Namespace) -> bool:
     print(f"\n设备 ID: {did}")
     print("审批状态：已通过" if approved else "审批状态：未通过/待审批")
     return approved
+
+
+def status_data(api: str) -> dict:
+    did = device_id()
+    resp = requests.get(f"{api.rstrip('/')}/api/status", params={"deviceId": did}, timeout=20)
+    data = resp.json()
+    resp.raise_for_status()
+    return data
 
 
 def ensure_approved(args: argparse.Namespace) -> None:
@@ -195,7 +219,99 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def launch_gui() -> None:
+    root = Tk()
+    root.title("Fuck0Trust 设备审批客户端")
+    root.geometry("760x560")
+
+    config = load_config()
+    api_var = StringVar(value=str(config.get("api", os.environ.get("APPROVAL_API", ""))))
+    note_var = StringVar(value="")
+    did = device_id()
+
+    Label(root, text="Cloudflare Worker API 地址：").pack(anchor="w", padx=12, pady=(12, 2))
+    api_entry = Entry(root, textvariable=api_var, width=100)
+    api_entry.pack(fill="x", padx=12)
+
+    Label(root, text="申请备注：").pack(anchor="w", padx=12, pady=(10, 2))
+    note_entry = Entry(root, textvariable=note_var, width=100)
+    note_entry.pack(fill="x", padx=12)
+
+    Label(root, text=f"当前设备 ID：{did}").pack(anchor="w", padx=12, pady=(10, 2))
+
+    output: Text = ScrolledText(root, height=18)
+    output.pack(fill="both", expand=True, padx=12, pady=12)
+
+    def append(text: str) -> None:
+        output.configure(state=NORMAL)
+        output.insert(END, text + "\n")
+        output.see(END)
+        output.configure(state=DISABLED)
+
+    def get_api() -> str:
+        api = api_var.get().strip().rstrip("/")
+        if not api:
+            raise ValueError("请先填写 Cloudflare Worker API 地址，例如：https://xxx.workers.dev")
+        config = load_config()
+        config["api"] = api
+        save_config(config)
+        return api
+
+    def run_action(name: str, action) -> None:
+        append(f"\n>>> {name}")
+        try:
+            result = action()
+            if result is not None:
+                append(json.dumps(result, ensure_ascii=False, indent=2))
+        except Exception as exc:
+            append(f"错误：{exc}")
+            messagebox.showerror("执行失败", str(exc))
+
+    def gui_request() -> dict:
+        api = get_api()
+        data = request_approval_data(api, note_var.get())
+        append(f"设备 ID: {did}")
+        append("已提交审批申请，请联系管理员审批。")
+        return data
+
+    def gui_status() -> dict:
+        api = get_api()
+        data = status_data(api)
+        append(f"审批状态：{'已通过' if data.get('approved') else '未通过/待审批'}")
+        return data
+
+    def gui_run() -> None:
+        args = argparse.Namespace(api=get_api())
+        run_once(args)
+        append("受控功能已执行：已查询 WFPRedirect 状态。")
+
+    def gui_install_task() -> None:
+        args = argparse.Namespace(api=get_api())
+        install_task(args)
+        append(f"计划任务已创建/更新：{TASK_NAME}，每 4 分钟执行一次。")
+
+    def gui_remove_task() -> None:
+        args = argparse.Namespace(api=None)
+        remove_task(args)
+        append(f"计划任务已删除：{TASK_NAME}")
+
+    button_frame = root
+    Button(button_frame, text="提交审批", command=lambda: run_action("提交审批", gui_request)).pack(side="left", padx=(12, 4), pady=6)
+    Button(button_frame, text="查询状态", command=lambda: run_action("查询状态", gui_status)).pack(side="left", padx=4, pady=6)
+    Button(button_frame, text="执行一次", command=lambda: run_action("执行一次", gui_run)).pack(side="left", padx=4, pady=6)
+    Button(button_frame, text="安装4分钟计划任务", command=lambda: run_action("安装计划任务", gui_install_task)).pack(side="left", padx=4, pady=6)
+    Button(button_frame, text="删除计划任务", command=lambda: run_action("删除计划任务", gui_remove_task)).pack(side="left", padx=4, pady=6)
+
+    append("欢迎使用设备审批客户端。")
+    append("首次使用请填写 Worker API 地址并点击“提交审批”。")
+    append("注意：本工具仅查询状态，不会停止或禁用安全/零信任驱动。")
+    root.mainloop()
+
+
 def main() -> None:
+    if len(sys.argv) == 1:
+        launch_gui()
+        return
     parser = build_parser()
     args = parser.parse_args()
     args.func(args)

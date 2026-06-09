@@ -85,6 +85,10 @@ curl -X POST \
 
 从 GitHub Actions 的 `Build Windows Client` 工作流下载 `Fuck0TrustClient.exe`。
 
+直接双击 `Fuck0TrustClient.exe` 会打开图形界面，可在界面中填写 Worker API、提交审批、查询状态、执行一次受控功能、安装/删除计划任务。
+
+也可以使用命令行模式：
+
 提交审批：
 
 ```powershell

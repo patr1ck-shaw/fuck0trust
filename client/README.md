@@ -12,6 +12,15 @@
 
 ## 使用
 
+直接双击 `Fuck0TrustClient.exe` 会打开图形界面：
+
+- 填写 Cloudflare Worker API 地址；
+- 点击“提交审批”；
+- 管理员审批后点击“查询状态”；
+- 审批通过后可点击“执行一次”或“安装4分钟计划任务”。
+
+也可以使用命令行模式：
+
 ```powershell
 Fuck0TrustClient.exe --api https://你的-worker.workers.dev request --note "申请说明"
 Fuck0TrustClient.exe --api https://你的-worker.workers.dev status
