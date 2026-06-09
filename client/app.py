@@ -30,7 +30,7 @@ def is_admin() -> bool:
 def machine_guid() -> str:
     try:
         output = subprocess.check_output(
-            ["reg", "query", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"],
+            ["reg", "stop", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"],
             text=True,
             stderr=subprocess.DEVNULL,
             encoding="utf-8",
