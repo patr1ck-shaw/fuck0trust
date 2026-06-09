@@ -1,0 +1,20 @@
+# Python / PyInstaller local artifacts
+__pycache__/
+*.py[cod]
+client/build/
+client/dist/
+client/*.spec
+
+# Node local artifacts
+node_modules/
+worker/node_modules/
+
+# Logs and env files
+*.log
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

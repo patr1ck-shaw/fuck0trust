@@ -1,0 +1,13 @@
+name = "device-approval-worker"
+main = "src/index.ts"
+compatibility_date = "2026-06-09"
+
+# 创建 KV 后，把 id 替换为真实值：
+#   npx wrangler kv namespace create DEVICE_APPROVAL_KV
+[[kv_namespaces]]
+binding = "DEVICE_APPROVAL_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+[vars]
+# 部署前请修改为强随机值，也可以用 wrangler secret put ADMIN_TOKEN
+ADMIN_TOKEN = "CHANGE_ME_ADMIN_TOKEN"
