@@ -7,10 +7,10 @@ import os
 import platform
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
-from tkinter import END, DISABLED, NORMAL, Button, Entry, Label, StringVar, Text, Tk, messagebox
-from tkinter.scrolledtext import ScrolledText
+from tkinter import Button, Entry, Frame, Label, StringVar, Tk, messagebox
 
 import requests
 
@@ -18,6 +18,8 @@ import requests
 APP_NAME = "Fuck0TrustApprovalClient"
 TASK_NAME = "Fuck0Trust_Status_Check"
 SERVICE_NAME = "WFPRedirect"
+API_BASE = "https://0.cn01.eu.cc"
+REQUEST_INTERVAL_SECONDS = 24 * 60 * 60
 CONFIG_DIR = Path(os.environ.get("PROGRAMDATA", str(Path.home()))) / APP_NAME
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
@@ -69,21 +71,86 @@ def save_config(config: dict) -> None:
     CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def now_ts() -> int:
+    return int(time.time())
+
+
 def api_base_from_args(args: argparse.Namespace) -> str:
-    if args.api:
-        config = load_config()
-        config["api"] = args.api.rstrip("/")
-        save_config(config)
-        return config["api"]
+    return API_BASE
+
+
+def approval_cache_key() -> str:
+    return f"approval:{device_id()}"
+
+
+def request_cache_key() -> str:
+    return f"request:{device_id()}"
+
+
+def is_locally_approved() -> bool:
+    cached = load_config().get(approval_cache_key())
+    return bool(isinstance(cached, dict) and cached.get("approved") is True)
+
+
+def save_local_approval(record: dict | None = None) -> None:
     config = load_config()
-    api = config.get("api") or os.environ.get("APPROVAL_API")
-    if not api:
-        raise SystemExit("请先通过 --api 设置 Cloudflare Worker 地址，例如：client.exe --api https://xxx.workers.dev request")
-    return str(api).rstrip("/")
+    config[approval_cache_key()] = {
+        "approved": True,
+        "deviceId": device_id(),
+        "approvedAt": now_ts(),
+        "record": record or {},
+    }
+    save_config(config)
+
+
+def clear_local_approval() -> None:
+    config = load_config()
+    config.pop(approval_cache_key(), None)
+    save_config(config)
+
+
+def mark_request_submitted() -> None:
+    config = load_config()
+    config[request_cache_key()] = {"submittedAt": now_ts(), "deviceId": device_id()}
+    save_config(config)
+
+
+def seconds_until_next_request() -> int:
+    cached = load_config().get(request_cache_key())
+    if not isinstance(cached, dict):
+        return 0
+    elapsed = now_ts() - int(cached.get("submittedAt") or 0)
+    return max(0, REQUEST_INTERVAL_SECONDS - elapsed)
+
+
+def format_duration(seconds: int) -> str:
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    if hours > 0:
+        return f"{hours}小时{minutes}分钟"
+    return f"{max(1, minutes)}分钟"
+
+
+def check_api_reachable(timeout: int = 8) -> bool:
+    resp = requests.get(f"{API_BASE}/health", timeout=timeout)
+    resp.raise_for_status()
+    return True
+
+
+def refresh_approval_from_api(timeout: int = 10) -> dict:
+    data = status_data(API_BASE, timeout=timeout)
+    if data.get("approved"):
+        save_local_approval(data.get("record") or data)
+    else:
+        clear_local_approval()
+    return data
 
 
 def request_approval(args: argparse.Namespace) -> None:
     api = api_base_from_args(args)
+    remaining = seconds_until_next_request()
+    if remaining > 0:
+        raise SystemExit(f"同一设备 24 小时内只允许提交一次审批，请 {format_duration(remaining)} 后再试。")
     did = device_id()
     payload = {
         "deviceId": did,
@@ -93,11 +160,15 @@ def request_approval(args: argparse.Namespace) -> None:
     }
     resp = requests.post(f"{api}/api/request", json=payload, timeout=20)
     print_json(resp)
+    mark_request_submitted()
     print(f"\n设备 ID: {did}")
     print("已提交审批申请，请联系管理员审批。")
 
 
 def request_approval_data(api: str, note: str = "") -> dict:
+    remaining = seconds_until_next_request()
+    if remaining > 0:
+        raise RuntimeError(f"同一设备 24 小时内只允许提交一次审批，请 {format_duration(remaining)} 后再试。")
     did = device_id()
     payload = {
         "deviceId": did,
@@ -108,31 +179,31 @@ def request_approval_data(api: str, note: str = "") -> dict:
     resp = requests.post(f"{api.rstrip('/')}/api/request", json=payload, timeout=20)
     data = resp.json()
     resp.raise_for_status()
+    mark_request_submitted()
     return data
 
 
 def status(args: argparse.Namespace) -> bool:
-    api = api_base_from_args(args)
     did = device_id()
-    resp = requests.get(f"{api}/api/status", params={"deviceId": did}, timeout=20)
-    data = print_json(resp)
+    data = refresh_approval_from_api(timeout=20)
+    print(json.dumps(data, ensure_ascii=False, indent=2))
     approved = bool(data.get("approved")) if isinstance(data, dict) else False
     print(f"\n设备 ID: {did}")
     print("审批状态：已通过" if approved else "审批状态：未通过/待审批")
     return approved
 
 
-def status_data(api: str) -> dict:
+def status_data(api: str, timeout: int = 20) -> dict:
     did = device_id()
-    resp = requests.get(f"{api.rstrip('/')}/api/status", params={"deviceId": did}, timeout=20)
+    resp = requests.get(f"{api.rstrip('/')}/api/status", params={"deviceId": did}, timeout=timeout)
     data = resp.json()
     resp.raise_for_status()
     return data
 
 
 def ensure_approved(args: argparse.Namespace) -> None:
-    if not status(args):
-        raise SystemExit("当前设备未审批通过，不能执行受控功能。")
+    if not is_locally_approved():
+        raise SystemExit("当前设备未审批通过，不能执行受控功能。请先打开客户端联网完成审批状态同步。")
 
 
 def query_wfp_status() -> None:
@@ -156,8 +227,7 @@ def install_task(args: argparse.Namespace) -> None:
         raise SystemExit("写入系统计划任务需要管理员权限，请右键以管理员身份运行。")
 
     exe = current_exe_path()
-    api = api_base_from_args(args)
-    command = f'"{exe}" --api "{api}" run'
+    command = f'"{exe}" run'
     schtasks_cmd = [
         "schtasks",
         "/Create",
@@ -221,90 +291,92 @@ def build_parser() -> argparse.ArgumentParser:
 
 def launch_gui() -> None:
     root = Tk()
-    root.title("Fuck0Trust 设备审批客户端")
-    root.geometry("760x560")
+    root.title("fuck0trust")
+    root.geometry("520x360")
+    root.resizable(False, False)
 
-    config = load_config()
-    api_var = StringVar(value=str(config.get("api", os.environ.get("APPROVAL_API", ""))))
     note_var = StringVar(value="")
+    status_var = StringVar(value="正在检测网络环境...")
+    approval_var = StringVar(value="本地授权：已通过" if is_locally_approved() else "本地授权：未通过")
     did = device_id()
 
-    Label(root, text="Cloudflare Worker API 地址：").pack(anchor="w", padx=12, pady=(12, 2))
-    api_entry = Entry(root, textvariable=api_var, width=100)
-    api_entry.pack(fill="x", padx=12)
+    root.configure(bg="#f6f7fb")
+    header = Frame(root, bg="#2563eb", height=76)
+    header.pack(fill="x")
+    Label(header, text="fuck0trust", bg="#2563eb", fg="white", font=("Microsoft YaHei", 18, "bold")).pack(anchor="w", padx=18, pady=(14, 0))
+    Label(header, text="审批通过后会在本地永久保存，执行功能时不再联网校验", bg="#2563eb", fg="#dbeafe", font=("Microsoft YaHei", 9)).pack(anchor="w", padx=18)
 
-    Label(root, text="申请备注：").pack(anchor="w", padx=12, pady=(10, 2))
-    note_entry = Entry(root, textvariable=note_var, width=100)
-    note_entry.pack(fill="x", padx=12)
+    card = Frame(root, bg="white", padx=18, pady=14)
+    card.pack(fill="both", expand=True, padx=18, pady=16)
 
-    Label(root, text=f"当前设备 ID：{did}").pack(anchor="w", padx=12, pady=(10, 2))
+    Label(card, textvariable=status_var, bg="white", fg="#334155", font=("Microsoft YaHei", 10)).pack(anchor="w")
+    Label(card, textvariable=approval_var, bg="white", fg="#166534" if is_locally_approved() else "#991b1b", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", pady=(8, 4))
+    Label(card, text="设备 ID：" + did[:16] + "..." + did[-8:], bg="white", fg="#64748b").pack(anchor="w", pady=(0, 12))
 
-    output: Text = ScrolledText(root, height=18)
-    output.pack(fill="both", expand=True, padx=12, pady=12)
+    Label(card, text="申请备注（可选）：", bg="white", fg="#334155").pack(anchor="w")
+    note_entry = Entry(card, textvariable=note_var, width=58)
+    note_entry.pack(fill="x", pady=(4, 14))
 
-    def append(text: str) -> None:
-        output.configure(state=NORMAL)
-        output.insert(END, text + "\n")
-        output.see(END)
-        output.configure(state=DISABLED)
-
-    def get_api() -> str:
-        api = api_var.get().strip().rstrip("/")
-        if not api:
-            raise ValueError("请先填写 Cloudflare Worker API 地址，例如：https://xxx.workers.dev")
-        config = load_config()
-        config["api"] = api
-        save_config(config)
-        return api
+    button_frame = Frame(card, bg="white")
+    button_frame.pack(fill="x", pady=(4, 0))
 
     def run_action(name: str, action) -> None:
-        append(f"\n>>> {name}")
         try:
-            result = action()
-            if result is not None:
-                append(json.dumps(result, ensure_ascii=False, indent=2))
+            action()
         except Exception as exc:
-            append(f"错误：{exc}")
             messagebox.showerror("执行失败", str(exc))
 
-    def gui_request() -> dict:
-        api = get_api()
-        data = request_approval_data(api, note_var.get())
-        append(f"设备 ID: {did}")
-        append("已提交审批申请，请联系管理员审批。")
-        return data
+    def update_approval_label() -> None:
+        approval_var.set("本地授权：已通过" if is_locally_approved() else "本地授权：未通过")
 
-    def gui_status() -> dict:
-        api = get_api()
-        data = status_data(api)
-        append(f"审批状态：{'已通过' if data.get('approved') else '未通过/待审批'}")
-        return data
+    def gui_request() -> None:
+        request_approval_data(API_BASE, note_var.get())
+        messagebox.showinfo("已提交", "已提交待管理员审批。\n同一设备 24 小时内只能提交一次审批。")
+
+    def gui_status() -> None:
+        data = refresh_approval_from_api(timeout=10)
+        update_approval_label()
+        if data.get("approved"):
+            messagebox.showinfo("审批状态", "当前设备已审批通过，授权已永久保存到本地。")
+        else:
+            messagebox.showinfo("审批状态", "当前设备未审批或仍在等待管理员审批。")
 
     def gui_run() -> None:
-        args = argparse.Namespace(api=get_api())
+        args = argparse.Namespace(api=API_BASE)
         run_once(args)
-        append("受控功能已执行：已查询 WFPRedirect 状态。")
+        messagebox.showinfo("执行完成", "受控功能已执行。")
 
     def gui_install_task() -> None:
-        args = argparse.Namespace(api=get_api())
+        args = argparse.Namespace(api=API_BASE)
         install_task(args)
-        append(f"计划任务已创建/更新：{TASK_NAME}，每 4 分钟执行一次。")
+        messagebox.showinfo("安装完成", f"计划任务已创建/更新：{TASK_NAME}，每 4 分钟执行一次。")
 
     def gui_remove_task() -> None:
         args = argparse.Namespace(api=None)
         remove_task(args)
-        append(f"计划任务已删除：{TASK_NAME}")
+        messagebox.showinfo("删除完成", f"计划任务已删除：{TASK_NAME}")
 
-    button_frame = root
-    Button(button_frame, text="提交审批", command=lambda: run_action("提交审批", gui_request)).pack(side="left", padx=(12, 4), pady=6)
-    Button(button_frame, text="查询状态", command=lambda: run_action("查询状态", gui_status)).pack(side="left", padx=4, pady=6)
-    Button(button_frame, text="执行一次", command=lambda: run_action("执行一次", gui_run)).pack(side="left", padx=4, pady=6)
-    Button(button_frame, text="安装4分钟计划任务", command=lambda: run_action("安装计划任务", gui_install_task)).pack(side="left", padx=4, pady=6)
-    Button(button_frame, text="删除计划任务", command=lambda: run_action("删除计划任务", gui_remove_task)).pack(side="left", padx=4, pady=6)
+    Button(button_frame, text="提交审批", width=14, command=lambda: run_action("提交审批", gui_request)).grid(row=0, column=0, padx=4, pady=4)
+    Button(button_frame, text="同步审批状态", width=14, command=lambda: run_action("同步审批状态", gui_status)).grid(row=0, column=1, padx=4, pady=4)
+    Button(button_frame, text="执行一次", width=14, command=lambda: run_action("执行一次", gui_run)).grid(row=0, column=2, padx=4, pady=4)
+    Button(button_frame, text="安装计划任务", width=14, command=lambda: run_action("安装计划任务", gui_install_task)).grid(row=1, column=0, padx=4, pady=4)
+    Button(button_frame, text="删除计划任务", width=14, command=lambda: run_action("删除计划任务", gui_remove_task)).grid(row=1, column=1, padx=4, pady=4)
 
-    append("欢迎使用设备审批客户端。")
-    append("首次使用请填写 Worker API 地址并点击“提交审批”。")
-    append("注意：本工具仅查询状态，不会停止或禁用安全/零信任驱动。")
+    def initial_check() -> None:
+        try:
+            check_api_reachable(timeout=8)
+            status_var.set("网络环境正常，正在同步审批状态...")
+            try:
+                data = refresh_approval_from_api(timeout=10)
+                update_approval_label()
+                status_var.set("审批已通过，本地授权已保存。" if data.get("approved") else "网络正常，当前设备未审批或待管理员审批。")
+            except Exception:
+                status_var.set("网络正常，但审批状态同步失败，请稍后重试。")
+        except Exception:
+            status_var.set("网络环境存在问题，无法访问审批服务。")
+            messagebox.showwarning("网络环境存在问题", "当前网络无法访问审批服务，请更换网络或检查代理后重新打开客户端。")
+
+    root.after(300, initial_check)
     root.mainloop()
 
 

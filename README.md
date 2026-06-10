@@ -1,116 +1,142 @@
-# Fuck0Trust 设备审批项目（安全合规版）
+# Fuck0Trust
 
-本项目包含两部分：
+Fuck0Trust 是一个基于 **Cloudflare Workers + KV** 的设备审批项目，包含：
 
-- `worker/`：Cloudflare Workers + KV 后端，用于保存设备审批状态；
-- `client/`：Windows 客户端，可由 GitHub Actions 打包成单文件 EXE。
+- `worker/dashboard-worker.js`：可直接粘贴到 Cloudflare Dashboard 的 Worker 单文件代码；
+- `client/`：Windows 客户端，支持提交审批、同步审批状态、本地保存授权、安装/删除计划任务。
 
 ## 重要说明
 
-你提供的 BAT 会执行 `sc stop WFPRedirect`。该行为会停止疑似零信任/网络安全相关驱动，并且你希望将其打包后分发给所有人、定时每 4 分钟执行。出于安全原因，本项目不会实现自动停止、禁用或绕过安全/零信任组件的功能。
+本项目保留“设备 ID + 审批 + KV 持久化 + Windows 客户端 + 计划任务”架构。
 
-当前实现保留了你需要的“设备 ID + 审批 + KV 持久化 + GitHub Actions 打包 EXE + 计划任务”架构，但客户端的受控功能仅为查询 `WFPRedirect` 状态，便于审计和排障。
+客户端当前的受控功能仅用于查询/演示受控流程，不实现自动停止、禁用或绕过安全/零信任组件的能力。
 
-## 后端接口
+## Worker 部署方式：Cloudflare Dashboard 直接粘贴
 
-Worker 提供以下接口：
+当前 Worker 侧只需要一个文件：
 
-- `POST /api/request`：客户端提交设备申请；
-- `GET /api/status?deviceId=...`：客户端查询审批状态；
-- `GET /api/admin/devices`：管理员列出设备；
-- `POST /api/admin/approve`：管理员批准设备；
-- `POST /api/admin/deny`：管理员拒绝设备。
+```text
+worker/dashboard-worker.js
+```
 
-管理员接口需要 Header：
+不再需要 Wrangler/TypeScript 项目文件。
+
+### 1. 创建 KV
+
+在 Cloudflare Dashboard 中创建一个 KV namespace，名称可自定义。
+
+### 2. 创建 Worker
+
+进入 Cloudflare Dashboard：
+
+```text
+Workers & Pages -> Create Worker
+```
+
+然后把 `worker/dashboard-worker.js` 的全部内容粘贴进去。
+
+### 3. 绑定 KV
+
+在 Worker 的 Settings/Bindings 中添加 KV Namespace binding：
+
+```text
+Variable name: DEVICE_APPROVAL_KV
+KV namespace: 你创建的 KV
+```
+
+### 4. 设置管理员 Token
+
+在 Worker 的 Variables/Secrets 中添加：
+
+```text
+ADMIN_TOKEN=你的强随机管理员密码
+```
+
+建议使用 Secret，不要使用默认值。
+
+### 5. 访问管理后台
+
+部署完成后访问：
+
+```text
+https://你的域名/admin
+```
+
+输入 `ADMIN_TOKEN` 登录后即可审批设备。
+
+## Worker 接口
+
+客户端接口：
+
+- `GET /health`：健康检查；
+- `POST /api/request`：客户端提交设备审批申请；
+- `GET /api/status?deviceId=...`：客户端查询审批状态。
+
+管理后台页面：
+
+- `GET /admin`：设备审批管理面板；
+- `POST /admin/login`：管理员登录；
+- `POST /admin/logout`：管理员退出；
+- `POST /admin/decision`：批准/拒绝设备。
+
+管理员 API：
+
+- `GET /api/admin/devices`：列出设备；
+- `POST /api/admin/approve`：批准设备；
+- `POST /api/admin/deny`：拒绝设备。
+
+管理员 API 需要 Header：
 
 ```http
 Authorization: Bearer <ADMIN_TOKEN>
 ```
 
-## Cloudflare Workers 部署
+### 客户端行为
 
-进入 `worker/`：
+- 打开客户端后自动检测 `/health`；
+- 网络不可达时会弹窗提示网络环境存在问题；
+- 点击“提交审批”后会提交当前设备信息；
+- 同一设备本地限制 24 小时内只能提交一次审批；
+- 点击“同步审批状态”会从 Worker 获取审批状态；
+- 审批通过后会在本地永久保存授权；
+- 后续执行受控功能或计划任务时只检查本地授权，不再联网校验。
 
-```bash
-npm install
-npx wrangler login
-npx wrangler kv namespace create DEVICE_APPROVAL_KV
+本地配置保存位置：
+
+```text
+%PROGRAMDATA%\Fuck0TrustApprovalClient\config.json
 ```
 
-将输出的 KV namespace id 填入 `worker/wrangler.toml`：
+## 客户端命令行
 
-```toml
-[[kv_namespaces]]
-binding = "DEVICE_APPROVAL_KV"
-id = "你的 KV namespace id"
+图形界面：
+
+```powershell
+Fuck0TrustClient.exe
 ```
-
-建议使用 secret 设置管理员 token：
-
-```bash
-npx wrangler secret put ADMIN_TOKEN
-npx wrangler deploy
-```
-
-## 管理员审批示例
-
-列出设备：
-
-```bash
-curl -H "Authorization: Bearer <ADMIN_TOKEN>" \
-  https://你的-worker.workers.dev/api/admin/devices
-```
-
-批准设备：
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer <ADMIN_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"deviceId":"设备ID"}' \
-  https://你的-worker.workers.dev/api/admin/approve
-```
-
-拒绝设备：
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer <ADMIN_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"deviceId":"设备ID"}' \
-  https://你的-worker.workers.dev/api/admin/deny
-```
-
-## 客户端使用
-
-从 GitHub Actions 的 `Build Windows Client` 工作流下载 `Fuck0TrustClient.exe`。
-
-直接双击 `Fuck0TrustClient.exe` 会打开图形界面，可在界面中填写 Worker API、提交审批、查询状态、执行一次受控功能、安装/删除计划任务。
-
-也可以使用命令行模式：
 
 提交审批：
 
 ```powershell
-Fuck0TrustClient.exe --api https://你的-worker.workers.dev request --note "申请说明"
+Fuck0TrustClient.exe request --note "申请说明"
 ```
 
-查询审批状态：
+同步/查询审批状态：
 
 ```powershell
-Fuck0TrustClient.exe --api https://你的-worker.workers.dev status
+Fuck0TrustClient.exe status
 ```
 
 审批通过后执行一次受控功能：
 
 ```powershell
-Fuck0TrustClient.exe --api https://你的-worker.workers.dev run
+Fuck0TrustClient.exe run
 ```
 
-审批通过后写入计划任务（需要管理员权限）：
+审批通过后安装计划任务（需要管理员权限）：
 
 ```powershell
-Fuck0TrustClient.exe --api https://你的-worker.workers.dev install-task
+Fuck0TrustClient.exe install-task
 ```
 
 删除计划任务（需要管理员权限）：
