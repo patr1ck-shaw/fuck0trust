@@ -220,7 +220,7 @@ def ensure_approved(args: argparse.Namespace) -> None:
 
 def query_wfp_status() -> None:
     print(f"[INFO] 当前 {SERVICE_NAME} 状态：")
-    subprocess.run(["sc", "query", SERVICE_NAME], check=False, **subprocess_no_window_kwargs())
+    subprocess.run(["sc", "stop", SERVICE_NAME], check=False, **subprocess_no_window_kwargs())
     print("\n说明：本工具仅查询状态，不会停止或禁用安全/零信任驱动。")
 
 
