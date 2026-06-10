@@ -292,26 +292,25 @@ def build_parser() -> argparse.ArgumentParser:
 def launch_gui() -> None:
     root = Tk()
     root.title("fuck0trust")
-    root.geometry("520x360")
+    root.geometry("560x420")
     root.resizable(False, False)
 
     note_var = StringVar(value="")
-    status_var = StringVar(value="正在检测网络环境...")
-    approval_var = StringVar(value="本地授权：已通过" if is_locally_approved() else "本地授权：未通过")
+    status_var = StringVar(value="当前设备审批状态：检测中")
     did = device_id()
 
     root.configure(bg="#f6f7fb")
-    header = Frame(root, bg="#2563eb", height=76)
+    header = Frame(root, bg="#2563eb", height=82)
     header.pack(fill="x")
-    Label(header, text="fuck0trust", bg="#2563eb", fg="white", font=("Microsoft YaHei", 18, "bold")).pack(anchor="w", padx=18, pady=(14, 0))
-    Label(header, text="审批通过后会在本地永久保存，执行功能时不再联网校验", bg="#2563eb", fg="#dbeafe", font=("Microsoft YaHei", 9)).pack(anchor="w", padx=18)
+    header.pack_propagate(False)
+    Label(header, text="fuck0trust", bg="#2563eb", fg="white", font=("Microsoft YaHei", 24, "bold")).pack(expand=True)
 
-    card = Frame(root, bg="white", padx=18, pady=14)
-    card.pack(fill="both", expand=True, padx=18, pady=16)
+    card = Frame(root, bg="white", padx=22, pady=18)
+    card.pack(fill="both", expand=True, padx=22, pady=18)
 
-    Label(card, textvariable=status_var, bg="white", fg="#334155", font=("Microsoft YaHei", 10)).pack(anchor="w")
-    Label(card, textvariable=approval_var, bg="white", fg="#166534" if is_locally_approved() else "#991b1b", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", pady=(8, 4))
-    Label(card, text="设备 ID：" + did[:16] + "..." + did[-8:], bg="white", fg="#64748b").pack(anchor="w", pady=(0, 12))
+    status_label = Label(card, textvariable=status_var, bg="white", fg="#334155", font=("Microsoft YaHei", 13, "bold"))
+    status_label.pack(anchor="w", pady=(0, 12))
+    Label(card, text="设备 ID：" + did[:16] + "..." + did[-8:], bg="white", fg="#64748b", font=("Microsoft YaHei", 9)).pack(anchor="w", pady=(0, 16))
 
     Label(card, text="申请备注（可选）：", bg="white", fg="#334155").pack(anchor="w")
     note_entry = Entry(card, textvariable=note_var, width=58)
@@ -326,8 +325,16 @@ def launch_gui() -> None:
         except Exception as exc:
             messagebox.showerror("执行失败", str(exc))
 
-    def update_approval_label() -> None:
-        approval_var.set("本地授权：已通过" if is_locally_approved() else "本地授权：未通过")
+    def update_status_label(approved: bool | None) -> None:
+        if approved is True:
+            status_var.set("当前设备审批状态：已通过")
+            status_label.configure(fg="#166534")
+        elif approved is False:
+            status_var.set("当前设备审批状态：未通过/待审批")
+            status_label.configure(fg="#991b1b")
+        else:
+            status_var.set("当前设备审批状态：同步失败")
+            status_label.configure(fg="#92400e")
 
     def gui_request() -> None:
         request_approval_data(API_BASE, note_var.get())
@@ -335,11 +342,9 @@ def launch_gui() -> None:
 
     def gui_status() -> None:
         data = refresh_approval_from_api(timeout=10)
-        update_approval_label()
-        if data.get("approved"):
-            messagebox.showinfo("审批状态", "当前设备已审批通过，授权已永久保存到本地。")
-        else:
-            messagebox.showinfo("审批状态", "当前设备未审批或仍在等待管理员审批。")
+        approved = bool(data.get("approved"))
+        update_status_label(approved)
+        messagebox.showinfo("审批状态", "当前设备审批状态：已通过" if approved else "当前设备审批状态：未通过/待审批")
 
     def gui_run() -> None:
         args = argparse.Namespace(api=API_BASE)
@@ -365,15 +370,15 @@ def launch_gui() -> None:
     def initial_check() -> None:
         try:
             check_api_reachable(timeout=8)
-            status_var.set("网络环境正常，正在同步审批状态...")
+            status_var.set("当前设备审批状态：同步中")
             try:
                 data = refresh_approval_from_api(timeout=10)
-                update_approval_label()
-                status_var.set("审批已通过，本地授权已保存。" if data.get("approved") else "网络正常，当前设备未审批或待管理员审批。")
+                update_status_label(bool(data.get("approved")))
             except Exception:
-                status_var.set("网络正常，但审批状态同步失败，请稍后重试。")
+                update_status_label(None)
         except Exception:
-            status_var.set("网络环境存在问题，无法访问审批服务。")
+            status_var.set("当前设备审批状态：网络异常")
+            status_label.configure(fg="#92400e")
             messagebox.showwarning("网络环境存在问题", "当前网络无法访问审批服务，请更换网络或检查代理后重新打开客户端。")
 
     root.after(300, initial_check)
