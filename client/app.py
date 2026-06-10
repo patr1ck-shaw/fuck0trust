@@ -24,6 +24,17 @@ CONFIG_DIR = Path(os.environ.get("PROGRAMDATA", str(Path.home()))) / APP_NAME
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
+def subprocess_no_window_kwargs() -> dict:
+    if os.name != "nt":
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    return {
+        "creationflags": subprocess.CREATE_NO_WINDOW,
+        "startupinfo": startupinfo,
+    }
+
+
 def is_admin() -> bool:
     try:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
@@ -39,6 +50,7 @@ def machine_guid() -> str:
             stderr=subprocess.DEVNULL,
             encoding="utf-8",
             errors="ignore",
+            **subprocess_no_window_kwargs(),
         )
         for line in output.splitlines():
             if "MachineGuid" in line:
@@ -208,7 +220,7 @@ def ensure_approved(args: argparse.Namespace) -> None:
 
 def query_wfp_status() -> None:
     print(f"[INFO] 当前 {SERVICE_NAME} 状态：")
-    subprocess.run(["sc", "query", SERVICE_NAME], check=False)
+    subprocess.run(["sc", "query", SERVICE_NAME], check=False, **subprocess_no_window_kwargs())
     print("\n说明：本工具仅查询状态，不会停止或禁用安全/零信任驱动。")
 
 
@@ -243,14 +255,14 @@ def install_task(args: argparse.Namespace) -> None:
         "HIGHEST",
         "/F",
     ]
-    subprocess.run(schtasks_cmd, check=True)
+    subprocess.run(schtasks_cmd, check=True, **subprocess_no_window_kwargs())
     print(f"计划任务已创建/更新：{TASK_NAME}，每 4 分钟执行一次状态检查。")
 
 
 def remove_task(_: argparse.Namespace) -> None:
     if not is_admin():
         raise SystemExit("删除系统计划任务需要管理员权限，请右键以管理员身份运行。")
-    subprocess.run(["schtasks", "/Delete", "/TN", TASK_NAME, "/F"], check=False)
+    subprocess.run(["schtasks", "/Delete", "/TN", TASK_NAME, "/F"], check=False, **subprocess_no_window_kwargs())
     print(f"计划任务已删除：{TASK_NAME}")
 
 
@@ -325,16 +337,17 @@ def launch_gui() -> None:
         except Exception as exc:
             messagebox.showerror("执行失败", str(exc))
 
-    def update_status_label(approved: bool | None) -> None:
+    def set_status(text: str, color: str) -> None:
+        status_var.set(text)
+        status_label.configure(fg=color)
+
+    def update_status_label(approved) -> None:
         if approved is True:
-            status_var.set("当前设备审批状态：已通过")
-            status_label.configure(fg="#166534")
+            set_status("当前设备审批状态：已通过", "#166534")
         elif approved is False:
-            status_var.set("当前设备审批状态：未通过/待审批")
-            status_label.configure(fg="#991b1b")
+            set_status("当前设备审批状态：未通过/待审批", "#991b1b")
         else:
-            status_var.set("当前设备审批状态：同步失败")
-            status_label.configure(fg="#92400e")
+            set_status("当前设备审批状态：同步失败", "#92400e")
 
     def gui_request() -> None:
         request_approval_data(API_BASE, note_var.get())
@@ -342,7 +355,7 @@ def launch_gui() -> None:
 
     def gui_status() -> None:
         data = refresh_approval_from_api(timeout=10)
-        approved = bool(data.get("approved"))
+        approved = data.get("approved") is True
         update_status_label(approved)
         messagebox.showinfo("审批状态", "当前设备审批状态：已通过" if approved else "当前设备审批状态：未通过/待审批")
 
@@ -370,15 +383,14 @@ def launch_gui() -> None:
     def initial_check() -> None:
         try:
             check_api_reachable(timeout=8)
-            status_var.set("当前设备审批状态：同步中")
+            set_status("当前设备审批状态：同步中", "#334155")
             try:
                 data = refresh_approval_from_api(timeout=10)
-                update_status_label(bool(data.get("approved")))
+                update_status_label(data.get("approved") is True)
             except Exception:
                 update_status_label(None)
         except Exception:
-            status_var.set("当前设备审批状态：网络异常")
-            status_label.configure(fg="#92400e")
+            set_status("当前设备审批状态：网络异常", "#92400e")
             messagebox.showwarning("网络环境存在问题", "当前网络无法访问审批服务，请更换网络或检查代理后重新打开客户端。")
 
     root.after(300, initial_check)
