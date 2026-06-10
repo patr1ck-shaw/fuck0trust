@@ -1,5 +1,8 @@
 name: Build Windows Client
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: ["main", "master"]
@@ -8,7 +11,7 @@ on:
 
 jobs:
   build-windows-exe:
-    runs-on: windows-latest
+    runs-on: windows-2022
     defaults:
       run:
         working-directory: client
