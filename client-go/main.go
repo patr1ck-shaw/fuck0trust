@@ -130,7 +130,11 @@ func deviceID() string {
 	currentUser, _ := user.Current()
 	username := "unknown-user"
 	if currentUser != nil && currentUser.Username != "" {
+		// 规范化用户名：移除域名前缀 (DOMAIN\user -> user)
 		username = currentUser.Username
+		if idx := strings.LastIndex(username, "\\"); idx >= 0 {
+			username = username[idx+1:]
+		}
 	}
 	
 	guid := machineGUID()
@@ -267,10 +271,17 @@ type APIResponse struct {
 	Data    map[string]interface{} `json:"data"`
 }
 
-// 状态响应
-type StatusResponse struct {
+// API 通用响应
+type APIStatusResponse struct {
+	Ok       bool                   `json:"ok"`
 	Approved bool                   `json:"approved"`
 	Record   map[string]interface{} `json:"record"`
+}
+
+// 状态响应
+type StatusResponse struct {
+	Approved bool
+	Record   map[string]interface{}
 }
 
 // 检查 API 可达性
@@ -327,9 +338,14 @@ func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
 		return nil, fmt.Errorf("API 返回错误: %s", string(body))
 	}
 	
-	var result StatusResponse
-	if err := json.Unmarshal(body, &result); err != nil {
+	var apiResp APIStatusResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return nil, err
+	}
+	
+	result := &StatusResponse{
+		Approved: apiResp.Approved,
+		Record:   apiResp.Record,
 	}
 	
 	// 更新本地缓存
