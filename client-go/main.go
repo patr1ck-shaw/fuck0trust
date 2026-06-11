@@ -488,8 +488,8 @@ func main() {
 	}()
 	
 	if len(os.Args) == 1 {
-		// 无参数,启动 GUI
-		launchGUI()
+		// 无参数,启动系统托盘
+		launchTray()
 		return
 	}
 	
