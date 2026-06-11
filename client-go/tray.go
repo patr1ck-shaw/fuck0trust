@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/getlantern/systray"
 )
@@ -39,10 +41,8 @@ func onReady() {
 	
 	// 初始检查状态
 	go func() {
-		deviceIDText := deviceID()
-		
 		// 检查网络
-		if err := checkAPIReachable(8); err != nil {
+		if err := checkAPIReachable(8 * time.Second); err != nil {
 			mStatus.SetTitle("状态：网络异常")
 			showNotification("网络异常", "无法连接到审批服务器")
 			return
@@ -171,7 +171,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 	go func() {
 		tmpFile := filepath.Join(os.TempDir(), "fuck0trust_notify.ps1")
 		os.WriteFile(tmpFile, []byte(script), 0644)
-		execCommand("powershell", "-WindowStyle", "Hidden", "-File", tmpFile)
+		exec.Command("powershell", "-WindowStyle", "Hidden", "-File", tmpFile).Run()
 		os.Remove(tmpFile)
 	}()
 }
