@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,10 +19,32 @@ var (
 )
 
 func launchGUI() {
+	// 启动日志
+	logFile := filepath.Join(os.TempDir(), "fuck0trust_startup.log")
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err == nil {
+		fmt.Fprintf(f, "\n=== Startup at %s ===\n", time.Now().Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(f, "Step 1: Getting device ID...\n")
+		f.Close()
+	}
+	
 	deviceIDText = deviceID()
+	
+	// 记录成功获取 deviceID
+	if f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+		fmt.Fprintf(f, "Step 2: Device ID obtained: %s\n", deviceIDText)
+		f.Close()
+	}
+	
 	shortDeviceID := deviceIDText
 	if len(deviceIDText) > 32 {
 		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
+	}
+	
+	// 记录开始创建窗口
+	if f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+		fmt.Fprintf(f, "Step 3: Creating main window...\n")
+		f.Close()
 	}
 	
 	if err := (MainWindow{
@@ -142,8 +166,20 @@ func launchGUI() {
 			},
 		},
 	}.Create()); err != nil {
+		// 记录窗口创建失败
+		if f, err2 := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err2 == nil {
+			fmt.Fprintf(f, "Step 4: FAILED to create window: %v\n", err)
+			f.Close()
+		}
 		walk.MsgBox(nil, "错误", "创建窗口失败: "+err.Error(), walk.MsgBoxIconError)
 		return
+	}
+	
+	// 记录窗口创建成功
+	if f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+		fmt.Fprintf(f, "Step 4: Window created successfully\n")
+		fmt.Fprintf(f, "Step 5: Starting main window event loop...\n")
+		f.Close()
 	}
 
 	// 延迟 300ms 后执行初始检查
