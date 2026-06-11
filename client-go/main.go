@@ -57,6 +57,12 @@ func init() {
 
 // 获取机器 GUID
 func machineGUID() string {
+	defer func() {
+		if r := recover(); r != nil {
+			// 如果获取 GUID 出现 panic，返回默认值
+		}
+	}()
+	
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Cryptography`, registry.QUERY_VALUE)
 	if err != nil {
 		return getMACAddress()
@@ -72,6 +78,12 @@ func machineGUID() string {
 
 // 获取 MAC 地址作为备用
 func getMACAddress() string {
+	defer func() {
+		if r := recover(); r != nil {
+			// 如果获取 MAC 出现 panic，返回默认值
+		}
+	}()
+	
 	out, err := exec.Command("getmac", "/fo", "csv", "/nh").Output()
 	if err != nil {
 		return "unknown"
@@ -80,7 +92,10 @@ func getMACAddress() string {
 	if len(lines) > 0 {
 		parts := strings.Split(lines[0], ",")
 		if len(parts) > 0 {
-			return strings.Trim(parts[0], "\" \r\n")
+			mac := strings.Trim(parts[0], "\" \r\n")
+			if mac != "" {
+				return mac
+			}
 		}
 	}
 	return "unknown"
@@ -88,18 +103,40 @@ func getMACAddress() string {
 
 // 生成设备 ID
 func deviceID() string {
+	defer func() {
+		if r := recover(); r != nil {
+			// 记录 panic 但不中断程序
+			logFile := filepath.Join(os.TempDir(), "fuck0trust_deviceid_error.log")
+			f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+			if err == nil {
+				fmt.Fprintf(f, "\n=== DeviceID Error at %s ===\n", time.Now().Format("2006-01-02 15:04:05"))
+				fmt.Fprintf(f, "Panic: %v\n", r)
+				f.Close()
+			}
+		}
+	}()
+	
 	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "unknown-host"
+	}
+	
 	currentUser, _ := user.Current()
-	username := "unknown"
-	if currentUser != nil {
+	username := "unknown-user"
+	if currentUser != nil && currentUser.Username != "" {
 		username = currentUser.Username
+	}
+	
+	guid := machineGUID()
+	if guid == "" {
+		guid = "unknown-guid"
 	}
 
 	raw := strings.Join([]string{
 		hostname,
 		runtime.GOOS,
 		runtime.GOARCH,
-		machineGUID(),
+		guid,
 		username,
 	}, "|")
 
