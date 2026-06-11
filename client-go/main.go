@@ -355,7 +355,7 @@ func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
 		clearLocalApproval()
 	}
 	
-	return &result, nil
+	return result, nil
 }
 
 // 提交审批请求
