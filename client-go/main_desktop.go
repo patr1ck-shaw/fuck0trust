@@ -28,7 +28,8 @@ func launchGUI() {
 	app := NewApp()
 	
 	err := wails.Run(&options.App{
-		Title:  "Fuck0Trust 审批客户端",
+		Title:  "Fuck0Trust",
+
 		Width:  600,
 		Height: 700,
 		AssetServer: &assetserver.Options{

@@ -273,32 +273,81 @@ type APIResponse struct {
 
 // API 通用响应
 type APIStatusResponse struct {
-	Ok       bool                   `json:"ok"`
-	Approved bool                   `json:"approved"`
-	Record   map[string]interface{} `json:"record"`
+	Ok          bool                   `json:"ok"`
+	Approved    bool                   `json:"approved"`
+	Blacklisted bool                   `json:"blacklisted"`
+	Record      map[string]interface{} `json:"record"`
 }
 
 // 状态响应
 type StatusResponse struct {
-	Approved bool
-	Record   map[string]interface{}
+	Approved    bool
+	Blacklisted bool
+	Record      map[string]interface{}
+}
+
+// newHTTPClient 创建禁用 keep-alive 的 HTTP 客户端，避免 Cloudflare 复用连接导致的 EOF/握手错误
+func newHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DisableKeepAlives:   true,
+			MaxIdleConns:        0,
+			MaxIdleConnsPerHost: 0,
+			IdleConnTimeout:     10 * time.Second,
+			ForceAttemptHTTP2:   false,
+		},
+	}
+}
+
+// doWithRetry 执行请求并对网络类错误重试，缓解 Cloudflare 偶发 TLS 握手/连接重置
+func doWithRetry(method, url string, body string, timeout time.Duration) (*http.Response, []byte, error) {
+	var lastErr error
+	maxAttempts := 3
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		client := newHTTPClient(timeout)
+		var reqBody io.Reader
+		if body != "" {
+			reqBody = strings.NewReader(body)
+		}
+		req, err := http.NewRequest(method, url, reqBody)
+		if err != nil {
+			return nil, nil, err
+		}
+		addDefaultHeaders(req)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			// 仅对网络类错误重试
+			if attempt < maxAttempts && isNetworkError(err) {
+				time.Sleep(time.Duration(attempt) * 600 * time.Millisecond)
+				continue
+			}
+			return nil, nil, err
+		}
+
+		data, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			if attempt < maxAttempts {
+				time.Sleep(time.Duration(attempt) * 600 * time.Millisecond)
+				continue
+			}
+			return nil, nil, readErr
+		}
+		return resp, data, nil
+	}
+	return nil, nil, lastErr
 }
 
 // 检查 API 可达性
 func checkAPIReachable(timeout time.Duration) error {
-	client := &http.Client{Timeout: timeout}
-	req, err := http.NewRequest("GET", APIBase+"/health", nil)
+	resp, _, err := doWithRetry("GET", APIBase+"/health", "", timeout)
 	if err != nil {
 		return err
 	}
-	addDefaultHeaders(req)
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("API 返回状态码: %d", resp.StatusCode)
 	}
@@ -314,42 +363,31 @@ func addDefaultHeaders(req *http.Request) {
 
 // 从 API 刷新审批状态
 func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
-	client := &http.Client{Timeout: timeout}
 	url := fmt.Sprintf("%s/api/status?deviceId=%s", APIBase, deviceID())
-	
-	req, err := http.NewRequest("GET", url, nil)
+
+	resp, body, err := doWithRetry("GET", url, "", timeout)
 	if err != nil {
 		return nil, err
 	}
-	addDefaultHeaders(req)
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API 返回错误: %s", string(body))
 	}
-	
+
 	var apiResp APIStatusResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return nil, err
 	}
+
 	
 	result := &StatusResponse{
-		Approved: apiResp.Approved,
-		Record:   apiResp.Record,
+		Approved:    apiResp.Approved,
+		Blacklisted: apiResp.Blacklisted,
+		Record:      apiResp.Record,
 	}
 	
-	// 更新本地缓存
-	if result.Approved {
+	// 更新本地缓存：被拉黑或未通过都清除本地审批
+	if result.Approved && !result.Blacklisted {
 		saveLocalApproval(result.Record)
 	} else {
 		clearLocalApproval()
@@ -611,7 +649,10 @@ func main() {
 		data, _ := json.MarshalIndent(status, "", "  ")
 		fmt.Println(string(data))
 		fmt.Printf("\n设备 ID: %s\n", did)
-		if status.Approved {
+		if status.Blacklisted {
+			fmt.Println("审批状态：已被拉黑，请联系 @pppatr1ck_bot")
+			os.Exit(0)
+		} else if status.Approved {
 			fmt.Println("审批状态：已通过")
 		} else {
 			fmt.Println("审批状态：未通过/待审批")

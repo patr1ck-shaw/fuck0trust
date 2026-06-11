@@ -62,7 +62,8 @@ func launchGUI() {
 	
 	if err := (MainWindow{
 		AssignTo: &mainWindow,
-		Title:    "Fuck0Trust 审批客户端",
+		Title:    "Fuck0Trust",
+
 		MinSize:  Size{Width: 560, Height: 420},
 		MaxSize:  Size{Width: 560, Height: 420},
 		Layout:   VBox{MarginsZero: true, SpacingZero: true},
@@ -76,8 +77,9 @@ func launchGUI() {
 				Layout:     VBox{},
 				Children: []Widget{
 					Label{
-						Text:       "Fuck0Trust 审批客户端",
+						Text:       "Fuck0Trust",
 						Font:       Font{Family: "Microsoft YaHei", PointSize: 24, Bold: true},
+
 						TextColor:  walk.RGB(255, 255, 255),
 						Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)},
 					},
@@ -230,6 +232,14 @@ func initialCheck() {
 		return
 	}
 
+	if status.Blacklisted {
+		mainWindow.Synchronize(func() {
+			walk.MsgBox(mainWindow, "提示", "你已被拉黑，请联系 @pppatr1ck_bot", walk.MsgBoxIconError)
+			os.Exit(0)
+		})
+		return
+	}
+
 	mainWindow.Synchronize(func() {
 		updateStatusLabel(status.Approved)
 	})
@@ -277,6 +287,11 @@ func guiSyncStatus() {
 		mainWindow.Synchronize(func() {
 			if err != nil {
 				walk.MsgBox(mainWindow, "执行失败", sanitizeError(err), walk.MsgBoxIconError)
+				return
+			}
+			if status.Blacklisted {
+				walk.MsgBox(mainWindow, "提示", "你已被拉黑，请联系 @pppatr1ck_bot", walk.MsgBoxIconError)
+				os.Exit(0)
 				return
 			}
 			updateStatusLabel(status.Approved)

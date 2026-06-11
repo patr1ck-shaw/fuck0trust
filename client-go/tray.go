@@ -20,7 +20,8 @@ func launchTray() {
 func onReady() {
 	// 设置托盘图标和提示
 	systray.SetTitle("Fuck0Trust")
-	systray.SetTooltip("Fuck0Trust 客户端")
+	systray.SetTooltip("Fuck0Trust")
+
 
 	
 	// 创建菜单项
@@ -59,6 +60,13 @@ func onReady() {
 			return
 		}
 		
+		if status.Blacklisted {
+			showNotification("提示", "你已被拉黑，请联系 @pppatr1ck_bot")
+			time.Sleep(3 * time.Second)
+			systray.Quit()
+			os.Exit(0)
+			return
+		}
 		if status.Approved {
 			mStatus.SetTitle("状态：已通过 ✓")
 		} else {
@@ -100,7 +108,13 @@ func onReady() {
 						return
 					}
 
-					
+					if status.Blacklisted {
+						showNotification("提示", "你已被拉黑，请联系 @pppatr1ck_bot")
+						time.Sleep(3 * time.Second)
+						systray.Quit()
+						os.Exit(0)
+						return
+					}
 					if status.Approved {
 						mStatus.SetTitle("状态：已通过 ✓")
 						showNotification("审批状态", "当前设备已通过审批")

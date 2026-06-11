@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -69,13 +70,30 @@ func (a *App) SyncStatus() map[string]interface{} {
 			"message": friendlyNetworkError(),
 		}
 	}
-	
+
+	// 设备被拉黑，前端会弹窗提示并在确认后调用 ForceExit
+	if status.Blacklisted {
+		return map[string]interface{}{
+			"success":     true,
+			"approved":    false,
+			"blacklisted": true,
+			"message":     "你已被拉黑，请联系 @pppatr1ck_bot",
+		}
+	}
+
 	return map[string]interface{}{
-		"success":  true,
-		"approved": status.Approved,
-		"message":  "状态已同步",
+		"success":     true,
+		"approved":    status.Approved,
+		"blacklisted": false,
+		"message":     "状态已同步",
 	}
 }
+
+// ForceExit 强制退出程序（设备被拉黑时由前端确认后调用）
+func (a *App) ForceExit() {
+	os.Exit(0)
+}
+
 
 // RunOnce 执行一次受控功能
 func (a *App) RunOnce() map[string]interface{} {

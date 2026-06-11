@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fuck0Trust 审批客户端</title>
+    <title>Fuck0Trust</title>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -145,7 +146,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔐 Fuck0Trust 审批客户端</h1>
+        <h1>🔐 Fuck0Trust</h1>
+
         
         <div class="device-id">
             <strong>设备 ID:</strong><br>
@@ -185,12 +187,65 @@
     <script>
         let currentStatus = {};
         
-        // 初始化
+        // 启用/禁用所有功能按钮
+        function setButtonsEnabled(enabled) {
+            document.querySelectorAll('.button-group button').forEach(function(b) {
+                b.disabled = !enabled;
+            });
+        }
+
+        // 初始化：启动时必须强制同步成功一次，否则不允许使用
         window.onload = async function() {
-            await loadStatus();
+            // 默认禁用所有功能，直到同步成功
+            setButtonsEnabled(false);
+            await forceSyncOnStartup();
         };
-        
-        // 加载状态
+
+        // 启动强制同步
+        async function forceSyncOnStartup() {
+            // 先显示设备 ID
+            try {
+                const deviceId = await window.go.main.App.GetDeviceID();
+                document.getElementById('deviceId').textContent = deviceId;
+            } catch (e) {}
+
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status pending';
+            statusEl.innerHTML = '<strong>审批状态:</strong> ⏳ 正在同步...';
+            setButtonsEnabled(false);
+
+            try {
+                const result = await window.go.main.App.SyncStatus();
+                // 被拉黑：弹窗后强制退出
+                if (result.blacklisted) {
+                    alert('你已被拉黑，请联系 @pppatr1ck_bot');
+                    try { await window.go.main.App.ForceExit(); } catch (e) {}
+                    return;
+                }
+                if (!result.success) {
+                    showSyncFailed();
+                    return;
+                }
+                // 同步成功，解锁功能
+                currentStatus = { approved: result.approved };
+                updateStatusUI(currentStatus);
+                setButtonsEnabled(true);
+                await loadStatus();
+            } catch (error) {
+                showSyncFailed();
+            }
+        }
+
+        // 同步失败：保持锁定并提供重试入口
+        function showSyncFailed() {
+            setButtonsEnabled(false);
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status pending';
+            statusEl.innerHTML = '<strong>审批状态:</strong> ⚠️ 同步失败，需联网同步成功后才能使用' +
+                '<br><button onclick="forceSyncOnStartup()" style="margin-top:10px;padding:8px 16px;background:#667eea;color:#fff;border:none;border-radius:6px;cursor:pointer">重新同步</button>';
+        }
+
+        // 加载状态（本地缓存详情）
         async function loadStatus() {
             try {
                 const deviceId = await window.go.main.App.GetDeviceID();
@@ -203,6 +258,7 @@
                 showMessage('加载状态失败: ' + friendlyError(error), 'error');
             }
         }
+
         
         // 更新状态UI
         function updateStatusUI(status) {
@@ -251,12 +307,19 @@
         async function syncStatus() {
             try {
                 const result = await window.go.main.App.SyncStatus();
+                // 设备被拉黑：弹窗提示，确认后强制退出
+                if (result.blacklisted) {
+                    alert('你已被拉黑，请联系 @pppatr1ck_bot');
+                    try { await window.go.main.App.ForceExit(); } catch (e) {}
+                    return;
+                }
                 showMessage(result.message, result.success ? 'success' : 'error');
                 await loadStatus();
             } catch (error) {
                 showMessage('同步失败: ' + friendlyError(error), 'error');
             }
         }
+
         
         // 执行一次
         async function runOnce() {
