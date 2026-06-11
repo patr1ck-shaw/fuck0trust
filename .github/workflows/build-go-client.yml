@@ -36,12 +36,19 @@ jobs:
       
     - name: Build with Wails
       working-directory: client-go
-      run: wails build -clean -platform windows/amd64
+      run: wails build -clean -platform windows/amd64 -tags desktop
       
     - name: Rename output
       working-directory: client-go
       run: |
-        Copy-Item "build\bin\client-go.exe" "Fuck0TrustClient.exe"
+        if (Test-Path "build\bin\Fuck0TrustClient.exe") {
+          Copy-Item "build\bin\Fuck0TrustClient.exe" "Fuck0TrustClient.exe" -Force
+        } elseif (Test-Path "build\bin\client-go.exe") {
+          Copy-Item "build\bin\client-go.exe" "Fuck0TrustClient.exe" -Force
+        } else {
+          Get-ChildItem "build\bin" -Recurse
+          throw "Wails output executable not found"
+        }
       
     - name: Build Debug executable (fallback tray mode with console)
       working-directory: client-go

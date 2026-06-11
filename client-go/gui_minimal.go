@@ -1,3 +1,6 @@
+//go:build walkgui && !desktop && !tray
+// +build walkgui,!desktop,!tray
+
 package main
 
 import (

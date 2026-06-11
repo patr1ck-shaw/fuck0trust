@@ -1,3 +1,6 @@
+//go:build tray && !desktop && !walkgui
+// +build tray,!desktop,!walkgui
+
 package main
 
 import (
@@ -49,7 +52,7 @@ func onReady() {
 		}
 		
 		// 获取审批状态
-		status, err := refreshApprovalFromAPI(10)
+		status, err := refreshApprovalFromAPI(10 * time.Second)
 		if err != nil {
 			mStatus.SetTitle("状态：同步失败")
 			return
@@ -77,7 +80,7 @@ func onReady() {
 					} else {
 						showNotification("提交成功", "已提交待管理员审批")
 						// 刷新状态
-						if status, err := refreshApprovalFromAPI(10); err == nil {
+						if status, err := refreshApprovalFromAPI(10 * time.Second); err == nil {
 							if status.Approved {
 								mStatus.SetTitle("状态：已通过 ✓")
 							} else {
@@ -89,7 +92,7 @@ func onReady() {
 				
 			case <-mSyncStatus.ClickedCh:
 				go func() {
-					status, err := refreshApprovalFromAPI(10)
+					status, err := refreshApprovalFromAPI(10 * time.Second)
 					if err != nil {
 						showNotification("同步失败", err.Error())
 						return

@@ -476,7 +476,7 @@ func friendlyNetworkError() string {
 }
 
 func main() {
-	// 捕获 panic 并记录到文件
+	// 捕获 panic 并记录到文件，避免闪退
 	defer func() {
 		if r := recover(); r != nil {
 			logFile := filepath.Join(os.TempDir(), "fuck0trust_crash.log")
@@ -487,7 +487,10 @@ func main() {
 				fmt.Fprintf(f, "Device ID: %s\n", deviceID())
 				f.Close()
 			}
-			panic(r) // 重新抛出以便调试版本显示
+			// 生产环境不重新抛出 panic，避免闪退
+			fmt.Fprintf(os.Stderr, "程序异常退出: %v\n", r)
+			fmt.Fprintf(os.Stderr, "详细日志已保存到: %s\n", logFile)
+			os.Exit(1)
 		}
 	}()
 	
