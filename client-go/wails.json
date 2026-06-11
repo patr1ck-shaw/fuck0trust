@@ -27,6 +27,6 @@
   "devServer": "",
   "appargs": "",
   "runNonNativeBuildScript": false,
-  "preBuildHooks": [],
-  "postBuildHooks": []
+  "preBuildHooks": {},
+  "postBuildHooks": {}
 }
