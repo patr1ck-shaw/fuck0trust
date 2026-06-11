@@ -435,6 +435,21 @@ func friendlyNetworkError() string {
 }
 
 func main() {
+	// 捕获 panic 并记录到文件
+	defer func() {
+		if r := recover(); r != nil {
+			logFile := filepath.Join(os.TempDir(), "fuck0trust_crash.log")
+			f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+			if err == nil {
+				fmt.Fprintf(f, "\n=== Crash at %s ===\n", time.Now().Format("2006-01-02 15:04:05"))
+				fmt.Fprintf(f, "Panic: %v\n", r)
+				fmt.Fprintf(f, "Device ID: %s\n", deviceID())
+				f.Close()
+			}
+			panic(r) // 重新抛出以便调试版本显示
+		}
+	}()
+	
 	if len(os.Args) == 1 {
 		// 无参数,启动 GUI
 		launchGUI()

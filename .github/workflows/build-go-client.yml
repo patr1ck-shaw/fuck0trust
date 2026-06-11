@@ -38,7 +38,11 @@ jobs:
       working-directory: client-go
       run: rsrc -manifest fuck0trust.manifest -o rsrc.syso
       
-    - name: Build executable
+    - name: Build Debug executable (with console)
+      working-directory: client-go
+      run: go build -ldflags="-s -w" -o Fuck0TrustClient-debug.exe .
+      
+    - name: Build GUI executable (no console)
       working-directory: client-go
       run: go build -ldflags="-s -w -H=windowsgui" -o Fuck0TrustClient.exe .
       
@@ -59,11 +63,18 @@ jobs:
         $size = (Get-Item Fuck0TrustClient.exe).Length / 1MB
         Write-Output "File size: $([math]::Round($size, 2)) MB"
         
-    - name: Upload artifact
+    - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
       with:
         name: Fuck0TrustClient-windows
         path: client-go/Fuck0TrustClient.exe
+        retention-days: 90
+        
+    - name: Upload Debug artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Fuck0TrustClient-debug
+        path: client-go/Fuck0TrustClient-debug.exe
         retention-days: 90
         
     - name: Create Release (on tag)
