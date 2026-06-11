@@ -62,7 +62,7 @@ func launchGUI() {
 	
 	if err := (MainWindow{
 		AssignTo: &mainWindow,
-		Title:    "fuck0trust",
+		Title:    "Fuck0Trust 审批客户端",
 		MinSize:  Size{Width: 560, Height: 420},
 		MaxSize:  Size{Width: 560, Height: 420},
 		Layout:   VBox{MarginsZero: true, SpacingZero: true},
@@ -76,7 +76,7 @@ func launchGUI() {
 				Layout:     VBox{},
 				Children: []Widget{
 					Label{
-						Text:       "fuck0trust",
+						Text:       "Fuck0Trust 审批客户端",
 						Font:       Font{Family: "Microsoft YaHei", PointSize: 24, Bold: true},
 						TextColor:  walk.RGB(255, 255, 255),
 						Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)},
