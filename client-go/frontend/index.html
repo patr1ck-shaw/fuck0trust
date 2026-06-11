@@ -220,6 +220,18 @@
             }
         }
         
+        // 友好的错误提示
+        function friendlyError(error) {
+            const msg = String(error);
+            // 隐藏所有包含 API 地址或网络错误的详细信息
+            if (msg.includes('0.cn01.eu.cc') || msg.includes('http') || 
+                msg.includes('tcp') || msg.includes('wsarecv') || 
+                msg.includes('connection') || msg.includes('EOF')) {
+                return '网络连接失败，请检查网络后重试';
+            }
+            return msg;
+        }
+        
         // 提交审批
         async function submitApproval() {
             const note = document.getElementById('note').value;
@@ -231,7 +243,7 @@
                     await loadStatus();
                 }
             } catch (error) {
-                showMessage('提交失败: ' + error, 'error');
+                showMessage('提交失败: ' + friendlyError(error), 'error');
             }
         }
         
@@ -242,7 +254,7 @@
                 showMessage(result.message, result.success ? 'success' : 'error');
                 await loadStatus();
             } catch (error) {
-                showMessage('同步失败: ' + error, 'error');
+                showMessage('同步失败: ' + friendlyError(error), 'error');
             }
         }
         

@@ -294,12 +294,11 @@ func checkAPIReachable(timeout time.Duration) error {
 	return nil
 }
 
-// 添加默认请求头
+// 添加默认请求头（简化版，避免与 Cloudflare Worker 冲突）
 func addDefaultHeaders(req *http.Request) {
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("User-Agent", "Fuck0TrustClient/1.0")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 }
 
 // 从 API 刷新审批状态
