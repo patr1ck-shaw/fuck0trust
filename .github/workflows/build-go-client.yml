@@ -31,20 +31,21 @@ jobs:
         go mod download
         go mod tidy
       
-    - name: Install rsrc (manifest tool)
-      run: go install github.com/akavel/rsrc@latest
+    - name: Install Wails CLI
+      run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
       
-    - name: Generate resource file
+    - name: Build with Wails
       working-directory: client-go
-      run: rsrc -manifest fuck0trust.manifest -o rsrc.syso
+      run: wails build -clean -platform windows/amd64
       
-    - name: Build Debug executable (with console)
+    - name: Rename output
+      working-directory: client-go
+      run: |
+        Copy-Item "build\bin\client-go.exe" "Fuck0TrustClient.exe"
+      
+    - name: Build Debug executable (fallback tray mode with console)
       working-directory: client-go
       run: go build -ldflags="-s -w" -o Fuck0TrustClient-debug.exe .
-      
-    - name: Build GUI executable (no console)
-      working-directory: client-go
-      run: go build -ldflags="-s -w -H=windowsgui" -o Fuck0TrustClient.exe .
       
     - name: Install UPX
       run: |

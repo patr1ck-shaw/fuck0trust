@@ -1,0 +1,32 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "client-go",
+  "outputfilename": "Fuck0TrustClient",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "",
+    "email": ""
+  },
+  "info": {
+    "companyName": "",
+    "productName": "Fuck0Trust 审批客户端",
+    "productVersion": "1.0.0",
+    "copyright": "",
+    "comments": ""
+  },
+  "nsisType": "multiple",
+  "obfuscated": false,
+  "wailsjsdir": "",
+  "assetdir": "frontend",
+  "reloaddirs": "",
+  "build:dir": "build",
+  "debounceMS": 750,
+  "devServer": "",
+  "appargs": "",
+  "runNonNativeBuildScript": false,
+  "preBuildHooks": [],
+  "postBuildHooks": []
+}
