@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lxn/walk"
@@ -18,8 +19,6 @@ var (
 func launchGUI() {
 	deviceIDText = deviceID()
 	shortDeviceID := deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
-
-	var noteVar string
 	
 	if err := (MainWindow{
 		AssignTo: &mainWindow,
@@ -37,11 +36,10 @@ func launchGUI() {
 				Layout:     VBox{},
 				Children: []Widget{
 					Label{
-						Text:          "fuck0trust",
-						Font:          Font{Family: "Microsoft YaHei", PointSize: 24, Bold: true},
-						TextColor:     walk.RGB(255, 255, 255),
-						Background:    SolidColorBrush{Color: walk.RGB(37, 99, 235)},
-						TextAlignment: AlignHCenter,
+						Text:       "fuck0trust",
+						Font:       Font{Family: "Microsoft YaHei", PointSize: 24, Bold: true},
+						TextColor:  walk.RGB(255, 255, 255),
+						Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)},
 					},
 				},
 			},
@@ -56,36 +54,32 @@ func launchGUI() {
 						Children: []Widget{
 							// 状态标签
 							Label{
-								AssignTo:      &statusLabel,
-								Text:          "当前设备审批状态：检测中",
-								Font:          Font{Family: "Microsoft YaHei", PointSize: 11, Bold: true},
-								TextColor:     walk.RGB(51, 65, 85),
-								Background:    SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								MinSize:       Size{Height: 30},
-								TextAlignment: AlignHNearVNear,
+								AssignTo:   &statusLabel,
+								Text:       "当前设备审批状态：检测中",
+								Font:       Font{Family: "Microsoft YaHei", PointSize: 11, Bold: true},
+								TextColor:  walk.RGB(51, 65, 85),
+								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
+								MinSize:    Size{Height: 30},
 							},
 							// 设备 ID
 							Label{
-								Text:          "设备 ID：" + shortDeviceID,
-								Font:          Font{Family: "Microsoft YaHei", PointSize: 9},
-								TextColor:     walk.RGB(100, 116, 139),
-								Background:    SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								MinSize:       Size{Height: 20},
-								TextAlignment: AlignHNearVNear,
+								Text:       "设备 ID：" + shortDeviceID,
+								Font:       Font{Family: "Microsoft YaHei", PointSize: 9},
+								TextColor:  walk.RGB(100, 116, 139),
+								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
+								MinSize:    Size{Height: 20},
 							},
 							VSpacer{Size: 8},
 							// 申请备注标签
 							Label{
-								Text:          "申请备注（可选）：",
-								Font:          Font{Family: "Microsoft YaHei", PointSize: 9},
-								TextColor:     walk.RGB(51, 65, 85),
-								Background:    SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								TextAlignment: AlignHNearVNear,
+								Text:       "申请备注（可选）：",
+								Font:       Font{Family: "Microsoft YaHei", PointSize: 9},
+								TextColor:  walk.RGB(51, 65, 85),
+								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 							},
 							// 备注输入框
 							LineEdit{
 								AssignTo: &noteEdit,
-								Text:     Bind("noteVar", SourceNilable),
 								MaxSize:  Size{Height: 26},
 							},
 							VSpacer{Size: 10},
@@ -128,18 +122,16 @@ func launchGUI() {
 							VSpacer{Size: 8},
 							// 底部说明文字
 							Label{
-								Text:          "• 提示：首次使用请先提交审批，待管理员通过后再执行功能",
-								Font:          Font{Family: "Microsoft YaHei", PointSize: 8},
-								TextColor:     walk.RGB(148, 163, 184),
-								Background:    SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								TextAlignment: AlignHNearVNear,
+								Text:       "• 提示：首次使用请先提交审批，待管理员通过后再执行功能",
+								Font:       Font{Family: "Microsoft YaHei", PointSize: 8},
+								TextColor:  walk.RGB(148, 163, 184),
+								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 							},
 							Label{
-								Text:          "• 同一设备 24 小时内只允许提交一次审批申请",
-								Font:          Font{Family: "Microsoft YaHei", PointSize: 8},
-								TextColor:     walk.RGB(148, 163, 184),
-								Background:    SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								TextAlignment: AlignHNearVNear,
+								Text:       "• 同一设备 24 小时内只允许提交一次审批申请",
+								Font:       Font{Family: "Microsoft YaHei", PointSize: 8},
+								TextColor:  walk.RGB(148, 163, 184),
+								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 							},
 						},
 					},
