@@ -1,9 +1,6 @@
-# Python / PyInstaller local artifacts
-__pycache__/
-*.py[cod]
-client/build/
-client/dist/
-client/*.spec
+# Go build artifacts
+client-go/*.exe
+client-go/rsrc.syso
 
 # Node local artifacts
 node_modules/

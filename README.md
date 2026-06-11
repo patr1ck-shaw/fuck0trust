@@ -3,7 +3,7 @@
 Fuck0Trust 是一个基于 **Cloudflare Workers + KV** 的设备审批项目，包含：
 
 - `worker/dashboard-worker.js`：可直接粘贴到 Cloudflare Dashboard 的 Worker 单文件代码；
-- `client/`：Windows 客户端，支持提交审批、同步审批状态、本地保存授权、安装/删除计划任务。
+- `client-go/`：Go 语言 Windows 客户端，支持提交审批、同步审批状态、本地保存授权、安装/删除计划任务。
 
 ## 重要说明
 
@@ -145,15 +145,33 @@ Fuck0TrustClient.exe install-task
 Fuck0TrustClient.exe remove-task
 ```
 
-## 本地构建 EXE
+## 客户端构建
+
+### GitHub Actions 自动构建（推荐）
+
+1. 推送代码到 GitHub
+2. 在 Actions 页面查看构建结果
+3. 下载构建产物 `Fuck0TrustClient-windows`（约 3-6 MB）
+
+工作流会自动：
+- 编译 Go 代码
+- 嵌入 Windows manifest
+- UPX 压缩优化
+- 上传构建产物
+
+### 本地构建
 
 ```powershell
-cd client
-.\build.ps1
+cd client-go
+.\build.bat
 ```
 
-产物位于：
+详见：[client-go/README.md](client-go/README.md)
 
-```text
-client\dist\Fuck0TrustClient.exe
-```
+## 客户端特性
+
+- ✅ **体积小**: 3-6 MB（使用 Go 原生编译 + UPX 压缩）
+- ✅ **启动快**: 毫秒级启动，无需运行时
+- ✅ **无依赖**: 单一可执行文件
+- ✅ **类型安全**: 编译时检查，运行稳定
+- ✅ **原生 GUI**: Windows 原生控件，体验流畅
