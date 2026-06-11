@@ -24,11 +24,12 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
-        cache-dependency-path: client-go/go.sum
         
     - name: Install dependencies
       working-directory: client-go
-      run: go mod download
+      run: |
+        go mod download
+        go mod tidy
       
     - name: Install rsrc (manifest tool)
       run: go install github.com/akavel/rsrc@latest
