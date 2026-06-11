@@ -1,17 +1,53 @@
-# Go build artifacts
-client-go/*.exe
-client-go/rsrc.syso
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Node local artifacts
-node_modules/
-worker/node_modules/
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Logs and env files
-*.log
-.env
-.env.*
+# Virtual environments
+venv/
+env/
+ENV/
 
-# OS / editor
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
 Thumbs.db
-.vscode/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+rsrc.syso
+
+# Build artifacts
+client-go/Fuck0TrustClient.exe
+client-go/Fuck0TrustClient-debug.exe
