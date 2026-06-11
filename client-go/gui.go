@@ -28,6 +28,16 @@ func launchGUI() {
 		f.Close()
 	}
 	
+	// 先测试最小化窗口能否创建
+	if err := testMinimalWindow(); err != nil {
+		if f, err2 := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err2 == nil {
+			fmt.Fprintf(f, "Minimal window test FAILED, aborting: %v\n", err)
+			f.Close()
+		}
+		walk.MsgBox(nil, "错误", "窗口系统初始化失败: "+err.Error(), walk.MsgBoxIconError)
+		return
+	}
+	
 	deviceIDText = deviceID()
 	
 	// 记录成功获取 deviceID
