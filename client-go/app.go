@@ -65,7 +65,7 @@ func (a *App) SyncStatus() map[string]interface{} {
 	if err != nil {
 		return map[string]interface{}{
 			"success": false,
-			"message": fmt.Sprintf("同步失败: %v", err),
+			"message": friendlyNetworkError(),
 		}
 	}
 	

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows/registry"
@@ -47,11 +48,12 @@ func init() {
 	configDir = filepath.Join(programData, AppName)
 	configFile = filepath.Join(configDir, "config.json")
 
-	// 初始化 HTTP 客户端,带重试和超时
+	// 初始化 HTTP 客户端,禁用 keep-alive 避免连接复用导致的 EOF 错误
 	transport := &http.Transport{
-		MaxIdleConns:        4,
-		MaxIdleConnsPerHost: 4,
-		IdleConnTimeout:     90 * time.Second,
+		DisableKeepAlives:   true,
+		MaxIdleConns:        0,
+		MaxIdleConnsPerHost: 0,
+		IdleConnTimeout:     10 * time.Second,
 	}
 	httpClient = &http.Client{
 		Transport: transport,
@@ -465,9 +467,18 @@ func removeTask() error {
 	}
 	
 	cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
+	hideWindow(cmd)
 	cmd.Run()
 	fmt.Printf("计划任务已删除：%s\n", TaskName)
 	return nil
+}
+
+// 隐藏 Windows 命令窗口
+func hideWindow(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 }
 
 // 友好的网络错误提示
