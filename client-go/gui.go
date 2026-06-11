@@ -18,7 +18,10 @@ var (
 
 func launchGUI() {
 	deviceIDText = deviceID()
-	shortDeviceID := deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
+	shortDeviceID := deviceIDText
+	if len(deviceIDText) > 32 {
+		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
+	}
 	
 	if err := (MainWindow{
 		AssignTo: &mainWindow,
