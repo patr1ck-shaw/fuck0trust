@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,8 +15,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"golang.org/x/sys/windows/registry"
 )
+
+//go:embed all:frontend
+var assets embed.FS
 
 const (
 	AppName                 = "Fuck0TrustApprovalClient"
@@ -488,8 +496,32 @@ func main() {
 	}()
 	
 	if len(os.Args) == 1 {
-		// 无参数,启动系统托盘
-		launchTray()
+		// 无参数,启动 Wails 窗口
+		app := NewApp()
+		
+		err := wails.Run(&options.App{
+			Title:  "Fuck0Trust 审批客户端",
+			Width:  600,
+			Height: 700,
+			AssetServer: &assetserver.Options{
+				Assets: assets,
+			},
+			BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 255},
+			OnStartup:        app.startup,
+			Bind: []interface{}{
+				app,
+			},
+			Windows: &windows.Options{
+				WebviewIsTransparent: false,
+				WindowIsTranslucent:  false,
+				DisableWindowIcon:    false,
+			},
+		})
+		
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "启动失败: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 	
