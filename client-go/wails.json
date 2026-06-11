@@ -1,7 +1,8 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "client-go",
-  "outputfilename": "fuck0trust",
+  "name": "Fuck0Trust",
+  "outputfilename": "Fuck0Trust",
+
   "frontend:install": "",
   "frontend:build": "",
   "frontend:dev:watcher": "",
@@ -12,7 +13,8 @@
   },
   "info": {
     "companyName": "",
-    "productName": "fuck0trust",
+    "productName": "Fuck0Trust",
+
     "productVersion": "1.0.0",
     "copyright": "",
     "comments": ""

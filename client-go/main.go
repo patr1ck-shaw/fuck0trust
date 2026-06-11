@@ -501,6 +501,54 @@ func friendlyNetworkError() string {
 	return "网络连接失败：当前网络无法稳定访问审批服务，请稍后重试，或更换网络/检查代理后重新打开客户端。"
 }
 
+// apiHost 返回后端主机名（不含协议），用于错误脱敏
+func apiHost() string {
+	host := strings.TrimPrefix(APIBase, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	return host
+}
+
+// isNetworkError 判断是否为网络类错误（关键词尽量覆盖全面）
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	keywords := []string{
+		"timeout", "connection", "network", "dial", "eof",
+		"no such host", "lookup", "refused", "unreachable",
+		"tls", "handshake", "reset", "i/o timeout",
+		"context deadline", "deadline exceeded", "wsarecv", "wsasend",
+		"actively refused", "forcibly closed",
+	}
+	for _, k := range keywords {
+		if strings.Contains(s, k) {
+			return true
+		}
+	}
+	// 错误信息中包含后端地址时，一律视为网络错误并脱敏
+	if strings.Contains(s, strings.ToLower(apiHost())) {
+		return true
+	}
+	return false
+}
+
+// sanitizeError 生成对用户安全的错误信息，绝不泄漏后端 API 地址
+func sanitizeError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if isNetworkError(err) {
+		return friendlyNetworkError()
+	}
+	// 兜底：即便不是网络错误，也把可能出现的后端地址替换掉
+	msg := err.Error()
+	msg = strings.ReplaceAll(msg, APIBase, "审批服务")
+	msg = strings.ReplaceAll(msg, apiHost(), "审批服务")
+	return msg
+}
+
+
 func main() {
 	// 捕获 panic 并记录到文件，避免闪退
 	defer func() {

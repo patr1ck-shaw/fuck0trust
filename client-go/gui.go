@@ -1,5 +1,5 @@
-//go:build walkgui && !desktop && !tray
-// +build walkgui,!desktop,!tray
+//go:build walkgui
+// +build walkgui
 
 package main
 
@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
+
 
 var (
 	mainWindow   *walk.MainWindow
@@ -259,13 +259,10 @@ func guiRequestApproval() {
 		err := requestApproval(note)
 		mainWindow.Synchronize(func() {
 			if err != nil {
-				if isNetworkError(err) {
-					walk.MsgBox(mainWindow, "执行失败", friendlyNetworkError(), walk.MsgBoxIconError)
-				} else {
-					walk.MsgBox(mainWindow, "执行失败", err.Error(), walk.MsgBoxIconError)
-				}
+				walk.MsgBox(mainWindow, "执行失败", sanitizeError(err), walk.MsgBoxIconError)
 				return
 			}
+
 			walk.MsgBox(mainWindow, "已提交", 
 				"已提交待管理员审批。\n同一设备 24 小时内只能提交一次审批。", 
 				walk.MsgBoxIconInformation)
@@ -279,14 +276,11 @@ func guiSyncStatus() {
 		status, err := refreshApprovalFromAPI(10 * time.Second)
 		mainWindow.Synchronize(func() {
 			if err != nil {
-				if isNetworkError(err) {
-					walk.MsgBox(mainWindow, "执行失败", friendlyNetworkError(), walk.MsgBoxIconError)
-				} else {
-					walk.MsgBox(mainWindow, "执行失败", err.Error(), walk.MsgBoxIconError)
-				}
+				walk.MsgBox(mainWindow, "执行失败", sanitizeError(err), walk.MsgBoxIconError)
 				return
 			}
 			updateStatusLabel(status.Approved)
+
 			if status.Approved {
 				walk.MsgBox(mainWindow, "审批状态", "当前设备审批状态：已通过", walk.MsgBoxIconInformation)
 			} else {
@@ -342,15 +336,5 @@ func guiRemoveTask() {
 	}()
 }
 
-// 判断是否是网络错误
-func isNetworkError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "timeout") ||
-		strings.Contains(errStr, "connection") ||
-		strings.Contains(errStr, "network") ||
-		strings.Contains(errStr, "dial") ||
-		strings.Contains(errStr, "EOF")
-}
+
+

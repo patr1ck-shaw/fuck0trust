@@ -19,8 +19,9 @@ func launchTray() {
 
 func onReady() {
 	// 设置托盘图标和提示
-	systray.SetTitle("fuck0trust")
-	systray.SetTooltip("fuck0trust 客户端")
+	systray.SetTitle("Fuck0Trust")
+	systray.SetTooltip("Fuck0Trust 客户端")
+
 	
 	// 创建菜单项
 	mStatus := systray.AddMenuItem("状态：检测中...", "当前审批状态")
@@ -76,8 +77,9 @@ func onReady() {
 			case <-mRequestApproval.ClickedCh:
 				go func() {
 					if err := requestApproval(""); err != nil {
-						showNotification("提交失败", err.Error())
+						showNotification("提交失败", sanitizeError(err))
 					} else {
+
 						showNotification("提交成功", "已提交待管理员审批")
 						// 刷新状态
 						if status, err := refreshApprovalFromAPI(10 * time.Second); err == nil {
@@ -94,9 +96,10 @@ func onReady() {
 				go func() {
 					status, err := refreshApprovalFromAPI(10 * time.Second)
 					if err != nil {
-						showNotification("同步失败", err.Error())
+						showNotification("同步失败", sanitizeError(err))
 						return
 					}
+
 					
 					if status.Approved {
 						mStatus.SetTitle("状态：已通过 ✓")
@@ -167,7 +170,8 @@ $template = @"
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
 $xml.LoadXml($template)
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("fuck0trust").Show($toast)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Fuck0Trust").Show($toast)
+
 `, title, message)
 	
 	// 后台执行，不阻塞

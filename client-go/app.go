@@ -50,7 +50,7 @@ func (a *App) SubmitApproval(note string) map[string]interface{} {
 	if err != nil {
 		return map[string]interface{}{
 			"success": false,
-			"message": err.Error(),
+			"message": sanitizeError(err),
 		}
 	}
 	return map[string]interface{}{
@@ -58,6 +58,7 @@ func (a *App) SubmitApproval(note string) map[string]interface{} {
 		"message": "审批请求已提交，请联系管理员审批",
 	}
 }
+
 
 // SyncStatus 同步审批状态
 func (a *App) SyncStatus() map[string]interface{} {

@@ -200,7 +200,7 @@
                 currentStatus = status;
                 updateStatusUI(status);
             } catch (error) {
-                showMessage('加载状态失败: ' + error, 'error');
+                showMessage('加载状态失败: ' + friendlyError(error), 'error');
             }
         }
         
@@ -264,7 +264,7 @@
                 const result = await window.go.main.App.RunOnce();
                 showMessage(result.message, result.success ? 'success' : 'error');
             } catch (error) {
-                showMessage('执行失败: ' + error, 'error');
+                showMessage('执行失败: ' + friendlyError(error), 'error');
             }
         }
         
@@ -275,7 +275,7 @@
                 const result = await window.go.main.App.InstallTask();
                 showMessage(result.message, result.success ? 'success' : 'error');
             } catch (error) {
-                showMessage('安装失败: ' + error, 'error');
+                showMessage('安装失败: ' + friendlyError(error), 'error');
             }
         }
         
@@ -286,7 +286,7 @@
                 const result = await window.go.main.App.RemoveTask();
                 showMessage(result.message, result.success ? 'success' : 'error');
             } catch (error) {
-                showMessage('删除失败: ' + error, 'error');
+                showMessage('删除失败: ' + friendlyError(error), 'error');
             }
         }
         

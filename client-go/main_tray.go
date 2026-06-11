@@ -1,5 +1,5 @@
-//go:build tray && !desktop && !walkgui
-// +build tray,!desktop,!walkgui
+//go:build tray
+// +build tray
 
 package main
 
