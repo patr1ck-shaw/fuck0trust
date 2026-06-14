@@ -31,18 +31,19 @@ jobs:
         go mod download
         go mod tidy
       
-    - name: Install rsrc tool
-      run: go install github.com/akavel/rsrc@latest
+    # 👈 【核心修复 1】丢弃十年前的垃圾 rsrc，换用现代的 go-winres 工具
+    - name: Install go-winres tool
+      run: go install github.com/tc-hib/go-winres@latest
       
-    # 👈 【核心修复 1】带上 -ico app.ico，把图标完美打进 exe 里面去！
+    # 👈 【核心修复 2】完美打包清单和图标，绝不破坏 EXE 结构！
     - name: Generate Windows Resource
       working-directory: client-go
       run: |
+        Remove-Item -Path *.syso -ErrorAction SilentlyContinue
         if (Test-Path "app.ico") {
-          rsrc -manifest fuck0trust.manifest -ico app.ico -o rsrc.syso
+          go-winres simply --manifest fuck0trust.manifest --icon app.ico
         } else {
-          rsrc -manifest fuck0trust.manifest -o rsrc.syso
-          Write-Output "Warning: app.ico not found, building without icon."
+          go-winres simply --manifest fuck0trust.manifest
         }
       
     - name: Build Native Windows Executable
@@ -57,9 +58,7 @@ jobs:
         } else {
           throw "Executable not found"
         }
-      
-    # 👈 【核心修复 2】彻底删除了 Install UPX 和 Compress with UPX 这两段搞破坏的代码！
-      
+        
     - name: Get file size
       working-directory: client-go
       run: |
