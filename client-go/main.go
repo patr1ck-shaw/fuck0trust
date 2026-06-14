@@ -544,7 +544,7 @@ func installTask() error {
 		"/TN", TaskName,
 		"/TR", fmt.Sprintf(`"%s" run`, exePath),
 		"/SC", "MINUTE",
-		"/MO", "4",
+		"/MO", "5",
 		"/RL", "HIGHEST",
 		"/RU", "NT AUTHORITY\\SYSTEM",
 		"/F",
@@ -555,7 +555,7 @@ func installTask() error {
 		return fmt.Errorf("创建计划任务失败: %s", string(output))
 	}
 	
-	fmt.Printf("计划任务已创建/更新：%s，每 4 分钟执行一次状态检查。\n", TaskName)
+	fmt.Printf("计划任务已创建/更新：%s，每 5 分钟执行一次状态检查。\n", TaskName)
 	return nil
 }
 
