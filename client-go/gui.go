@@ -22,7 +22,7 @@ var (
 	deviceIDText string
 	ni           *walk.NotifyIcon
 	
-	// 👈 声明 Windows 原生 user32.dll 句柄
+	// 声明 Windows 原生 user32.dll 句柄
 	user32           = syscall.NewLazyDLL("user32.dll")
 	procIsIconic     = user32.NewProc("IsIconic")
 	procShowWindow   = user32.NewProc("ShowWindow")
@@ -58,10 +58,10 @@ func launchGUI() {
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 		
-		// 👈 【Win32 修复】使用 IsIconic 检测是否点击了最小化按钮
+		// 👈 【类型转换修复】将 Handle() 强转为 uintptr 传给 Win32 API
 		OnSizeChanged: func() {
 			if mainWindow != nil {
-				ret, _, _ := procIsIconic.Call(mainWindow.Handle())
+				ret, _, _ := procIsIconic.Call(uintptr(mainWindow.Handle())) // 👈 修复这里
 				if ret != 0 {
 					mainWindow.SetVisible(false) // 隐藏主窗口，从任务栏彻底消失
 				}
@@ -184,12 +184,12 @@ func launchGUI() {
 		ni.SetIcon(walk.IconInformation())
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 👈 【Win32 修复】双击托盘图标恢复时，直接向句柄发送 SW_RESTORE (9) 指令弹回主窗口
+		// 👈 【类型转换修复】双击托盘图标恢复时，同样进行 uintptr 强转
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton {
 				mainWindow.SetVisible(true)
-				procShowWindow.Call(mainWindow.Handle(), 9) // SW_RESTORE = 9
-				procSetForeground.Call(mainWindow.Handle())
+				procShowWindow.Call(uintptr(mainWindow.Handle()), 9)   // 👈 修复这里 SW_RESTORE = 9
+				procSetForeground.Call(uintptr(mainWindow.Handle())) // 👈 修复这里
 			}
 		})
 		ni.SetVisible(true)
