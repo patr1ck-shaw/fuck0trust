@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"runtime/debug" // 👈 【新增引入】用于打印崩溃时的精准红字代码行数
 	"strings"
 	"syscall"
 	"time"
@@ -36,7 +37,7 @@ const (
 var (
 	configDir  string
 	configFile string
-	httpClient *http.Client
+	// 👈 【优化】废弃全局未初始化的 httpClient 指针，改为局部自闭环客户端，彻底根除抢跑引发的闪退
 )
 
 func init() {
@@ -48,18 +49,6 @@ func init() {
 	}
 	configDir = filepath.Join(programData, AppName)
 	configFile = filepath.Join(configDir, "config.json")
-
-	// 初始化 HTTP 客户端,禁用 keep-alive 避免连接复用导致的 EOF 错误
-	transport := &http.Transport{
-		DisableKeepAlives:   true,
-		MaxIdleConns:        0,
-		MaxIdleConnsPerHost: 0,
-		IdleConnTimeout:     10 * time.Second,
-	}
-	httpClient = &http.Client{
-		Transport: transport,
-		Timeout:   DefaultConnectTimeout + DefaultReadTimeout,
-	}
 }
 
 // 获取机器 GUID
@@ -287,7 +276,7 @@ type StatusResponse struct {
 	Record      map[string]interface{}
 }
 
-// newHTTPClient 创建禁用 keep-alive 的 HTTP 客户端，避免 Cloudflare 复用连接导致的 EOF/握手错误
+// 👈【全新修改】确保创建 HttpClient 时拥有独立的作用域，不和 Wails 的全局环境耦合绑定
 func newHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
@@ -306,7 +295,7 @@ func doWithRetry(method, url string, body string, timeout time.Duration) (*http.
 	var lastErr error
 	maxAttempts := 3
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		client := newHTTPClient(timeout)
+		client := newHTTPClient(timeout) // 👈 每次重试和调用都使用闭环安全的轻量 client
 		var reqBody io.Reader
 		if body != "" {
 			reqBody = strings.NewReader(body)
@@ -442,14 +431,15 @@ func requestApproval(note string) error {
 		return err
 	}
 	
+	// 👈【全新修复】不再使用外部可能为 nil 的全局 httpClient 指针，采用局部隔离请求
+	client := newHTTPClient(DefaultConnectTimeout + DefaultReadTimeout)
 	req, err := http.NewRequest("POST", APIBase+"/api/request", strings.NewReader(string(jsonData)))
 	if err != nil {
 		return err
 	}
 	addDefaultHeaders(req)
-	req.Header.Set("Content-Type", "application/json")
 	
-	resp, err := httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -493,7 +483,7 @@ func findSDPPath() (string, error) {
 	return "D:\\SDP\\ztgClient\\AccInject", fmt.Errorf("未在任意盘符中定位到 SDP 安装目录")
 }
 
-// 查询 WFP 服务状态 (根据新逻辑，此项改为定位并检查 ztgLoader 的存在性)
+// 查询 WFP 服务 status (根据新逻辑，此项改为定位并检查 ztgLoader 的存在性)
 func queryWFPStatus() error {
 	sdpPath, err := findSDPPath()
 	if err != nil {
@@ -509,7 +499,7 @@ func stopWFPService() error {
 	_ = queryWFPStatus()
 
 	sdpPath, _ := findSDPPath()
-	loaderExe := filepath.Join(sdpPath, "ztgLoader.exe") // 👈 修改为绝对路径
+	loaderExe := filepath.Join(sdpPath, "ztgLoader.exe") // 修改为绝对路径
 
 	fmt.Printf("[INFO] 正在切换至路径并执行卸载: %s\n", sdpPath)
 	
@@ -556,28 +546,28 @@ func installTask() error {
 		return err
 	}
 
-	// 1. 动态获取当前运行程序的管理员用户名
+	// 动态获取当前运行程序的管理员用户名
 	currentUser, err := user.Current()
 	username := "Administrators" // 备用降级值
 	if err == nil && currentUser.Username != "" {
 		username = currentUser.Username
 	}
 	
-	// 2. 获取当前软件所在的文件夹绝对路径
+	// 获取当前软件所在的文件夹绝对路径
 	exeDir := filepath.Dir(exePath)
 	
-	// 3. 👈【同步修复】既然我们在后台进行 10 秒常驻高频探测，计划任务直接改为“系统登录时在后台拉起常驻进程”
+	// 既然我们在后台进行 10 秒常驻高频探测，计划任务直接改为“系统登录时在后台拉起常驻进程”
 	cmd := exec.Command("schtasks",
 		"/Create",
 		"/TN", TaskName,
 		"/TR", fmt.Sprintf(`"%s" run`, exePath),
-		"/SC", "ONLOGON",          // 👈 开机登录时自动在后台默默运行
+		"/SC", "ONLOGON",          // 开机登录时自动在后台默默运行
 		"/RL", "HIGHEST",          // 保持最高权限
 		"/RU", username,           // 使用动态获取到的管理员账户
 		"/F",
 	)
 	
-	// 4. 确保执行时以当前程序所在文件夹作为起点
+	// 确保执行时以当前程序所在文件夹作为起点
 	cmd.Dir = exeDir
 	hideWindow(cmd)
 	
@@ -664,7 +654,7 @@ func sanitizeError(err error) string {
 }
 
 func main() {
-	// 捕获 panic 并记录到文件，避免闪退
+	// 捕获 panic 并记录到文件，支持输出完整的高精度红字代码行数堆栈
 	defer func() {
 		if r := recover(); r != nil {
 			logFile := filepath.Join(os.TempDir(), "fuck0trust_crash.log")
@@ -673,6 +663,7 @@ func main() {
 				fmt.Fprintf(f, "\n=== Crash at %s ===\n", time.Now().Format("2006-01-02 15:04:05"))
 				fmt.Fprintf(f, "Panic: %v\n", r)
 				fmt.Fprintf(f, "Device ID: %s\n", deviceID())
+				f.Write(debug.Stack()) // 👈 【核心修复】直接抓取抛出异常的底层精准代码行，打破玄学
 				f.Close()
 			}
 			// 生产环境不重新抛出 panic，避免闪退
@@ -737,7 +728,7 @@ func main() {
 	case "run":
 		fmt.Println("[INFO] 开启高频 10 秒通用互联网状态检测常驻守护...")
 		for {
-			// 调用刚才加好的全局通用互联网检测函数
+			// 调用全局通用互联网检测函数
 			if err := checkPublicInternet(); err != nil {
 				// 进到这里说明 100% 连不上互联网了
 				fmt.Printf("[WARN] 诊断到当前公共互联网完全不可达: %v，立即执行核心功能...\n", err)
