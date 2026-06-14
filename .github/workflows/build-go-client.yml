@@ -31,19 +31,18 @@ jobs:
         go mod download
         go mod tidy
       
-    # 👈 【核心修复 1】丢弃十年前的垃圾 rsrc，换用现代的 go-winres 工具
     - name: Install go-winres tool
       run: go install github.com/tc-hib/go-winres@latest
       
-    # 👈 【核心修复 2】完美打包清单和图标，绝不破坏 EXE 结构！
+    # 👈 【核心修复】去掉了错误的 --manifest 语法。只传图标，go-winres 会自动完美生成微软 UI 清单！
     - name: Generate Windows Resource
       working-directory: client-go
       run: |
         Remove-Item -Path *.syso -ErrorAction SilentlyContinue
         if (Test-Path "app.ico") {
-          go-winres simply --manifest fuck0trust.manifest --icon app.ico
+          go-winres simply --icon app.ico
         } else {
-          go-winres simply --manifest fuck0trust.manifest
+          go-winres simply
         }
       
     - name: Build Native Windows Executable
