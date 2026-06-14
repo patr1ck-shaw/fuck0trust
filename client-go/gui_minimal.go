@@ -12,7 +12,7 @@ import (
 	. "github.com/lxn/walk/declarative"
 )
 
-// 测试最小化窗口
+// 测试最小化窗口环境
 func testMinimalWindow() error {
 	logFile := filepath.Join(os.TempDir(), "fuck0trust_startup.log")
 	
@@ -27,10 +27,12 @@ func testMinimalWindow() error {
 	
 	var mw *walk.MainWindow
 	
+	// 👈 【核心修复】为测试窗口添加 VBox 基础布局排列，彻底拦截 `CreateLayoutItem` 空指针崩溃
 	err := MainWindow{
 		AssignTo: &mw,
 		Title:    "Test",
 		Size:     Size{Width: 300, Height: 200},
+		Layout:   VBox{MarginsZero: true, SpacingZero: true}, // 👈 焊死此处的空指针死穴
 	}.Create()
 	
 	if err != nil {
@@ -40,7 +42,7 @@ func testMinimalWindow() error {
 	
 	logStep("Minimal window created successfully!")
 	
-	// 立即关闭
+	// 立即关闭释放环境
 	mw.Close()
 	return nil
 }
