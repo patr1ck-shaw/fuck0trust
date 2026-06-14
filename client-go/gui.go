@@ -114,7 +114,7 @@ func launchGUI() {
 							VSpacer{Size: 8},
 							// 申请备注标签
 							Label{
-								Text:       "申请备注（可选）：",
+								Text:       "联系方式（必填）：",
 								Font:       Font{Family: "Microsoft YaHei", PointSize: 9},
 								TextColor:  walk.RGB(51, 65, 85),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
@@ -262,8 +262,13 @@ func updateStatusLabel(approved bool) {
 
 // GUI - 提交审批
 func guiRequestApproval() {
-	note := noteEdit.Text()
+	note := strings.TrimSpace(noteEdit.Text()) // 👈 改为 Trim 后拿取文本
 	
+	// 👈 新增：非空拦截提示
+	if note == "" {
+		walk.MsgBox(mainWindow, "提示", "请填写你的可联系方式，否则申请不予通过", walk.MsgBoxIconWarning)
+		return
+	}
 	// 在后台线程执行
 	go func() {
 		err := requestApproval(note)

@@ -398,6 +398,12 @@ func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
 // 提交审批请求
 func requestApproval(note string) error {
 	remaining := secondsUntilNextRequest()
+	note = strings.TrimSpace(note)
+	if note == "" {
+		return fmt.Errorf("请填写你的申请理由可联系方式，否则申请不予通过")
+	}
+
+	remaining := secondsUntilNextRequest()
 	if remaining > 0 {
 		return fmt.Errorf("同一设备 24 小时内只允许提交一次审批，请 %s 后再试", formatDuration(remaining))
 	}

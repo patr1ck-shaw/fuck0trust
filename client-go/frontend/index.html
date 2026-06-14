@@ -161,8 +161,8 @@
         <div class="message" id="message"></div>
         
         <div class="input-group">
-            <label for="note">备注信息（选填）</label>
-            <textarea id="note" placeholder="请填写申请理由或备注信息..."></textarea>
+            <label for="note">备注信息（必填）</label>
+            <textarea id="note" placeholder="请填写你的申请理由或可联系邮箱，否则申请不予通过..."></textarea>
         </div>
         
         <div class="button-group">
@@ -289,19 +289,25 @@
         }
         
         // 提交审批
-        async function submitApproval() {
-            const note = document.getElementById('note').value;
-            try {
-                const result = await window.go.main.App.SubmitApproval(note);
-                showMessage(result.message, result.success ? 'success' : 'error');
-                if (result.success) {
-                    document.getElementById('note').value = '';
-                    await loadStatus();
-                }
-            } catch (error) {
-                showMessage('提交失败: ' + friendlyError(error), 'error');
-            }
-        }
+		async function submitApproval() {
+			const note = document.getElementById('note').value.trim(); // 使用 .trim() 去除纯空格
+			// 👈 新增：拦截非空
+			if (!note) {
+				showMessage('提交失败：请填写你的申请理由可联系方式，否则申请不予通过', 'error');
+				return;
+			}
+			
+			try {
+				const result = await window.go.main.App.SubmitApproval(note);
+				showMessage(result.message, result.success ? 'success' : 'error');
+				if (result.success) {
+					document.getElementById('note').value = '';
+					await loadStatus();
+				}
+			} catch (error) {
+				showMessage('提交失败: ' + friendlyError(error), 'error');
+			}
+		}
         
         // 同步状态
         async function syncStatus() {
