@@ -488,7 +488,7 @@ func stopWFPService() error {
 	_ = queryWFPStatus()
 
 	sdpPath, _ := findSDPPath()
-	loaderExe := "ztgLoader.exe"
+	loaderExe := filepath.Join(sdpPath, "ztgLoader.exe") // 👈 修改为绝对路径
 
 	fmt.Printf("[INFO] 正在切换至路径并执行卸载: %s\n", sdpPath)
 	
