@@ -538,17 +538,32 @@ func installTask() error {
 	if err != nil {
 		return err
 	}
+
+	// 1. 👈 【新增】动态获取当前运行程序的管理员用户名 (例如 PATRICK\patr1ck)
+	currentUser, err := user.Current()
+	username := "Administrators" // 备用降级值
+	if err == nil && currentUser.Username != "" {
+		username = currentUser.Username
+	}
 	
+	// 2. 👈 【新增】获取当前软件所在的文件夹绝对路径，用于给计划任务补充环境和设置命令执行工作目录
+	exeDir := filepath.Dir(exePath)
+	
+	// 3. 👈 【修改】将 schtasks 的 /RU 参数改为刚才获取到的动态用户名，并且补充工作目录
 	cmd := exec.Command("schtasks",
 		"/Create",
 		"/TN", TaskName,
 		"/TR", fmt.Sprintf(`"%s" run`, exePath),
 		"/SC", "MINUTE",
-		"/MO", "5",
-		"/RL", "HIGHEST",
-		"/RU", "NT AUTHORITY\\SYSTEM",
+		"/MO", "5",                // 保持 5 分钟间隔
+		"/RL", "HIGHEST",          // 保持最高权限
+		"/RU", username,           // 👈 修改这里：用动态获取到的用户名替换掉原本写死的账户
 		"/F",
 	)
+	
+	// 4. 👈 【新增】确保执行 schtasks 注册动作时，以当前程序所在文件夹作为起点
+	cmd.Dir = exeDir
+	hideWindow(cmd)
 	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
