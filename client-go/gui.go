@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall" // 👈 引入系统底层调用
+	"syscall" // 引入系统底层调用
 	"time"
 
 	"github.com/lxn/walk"
@@ -50,6 +50,7 @@ func launchGUI() {
 		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
 	}
 	
+	// 👈 【核心修复 1】把 OnSizeChanged 属性从大块声明内部完全移除，避免窗口创建期间出现 nil 指针抢跑引发的崩溃
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
@@ -57,16 +58,6 @@ func launchGUI() {
 		MaxSize:    Size{Width: 560, Height: 420},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
-		
-		// 👈 【类型转换修复】将 Handle() 强转为 uintptr 传给 Win32 API
-		OnSizeChanged: func() {
-			if mainWindow != nil {
-				ret, _, _ := procIsIconic.Call(uintptr(mainWindow.Handle())) // 👈 修复这里
-				if ret != 0 {
-					mainWindow.SetVisible(false) // 隐藏主窗口，从任务栏彻底消失
-				}
-			}
-		},
 		
 		Children: []Widget{
 			// 顶部蓝色标题栏
@@ -177,6 +168,16 @@ func launchGUI() {
 		return
 	}
 	
+	// 👈 【核心修复 2】整个窗口完全创建并赋值成功后，再动态安全绑定 OnSizeChanged 事件
+	mainWindow.SizeChanged().Attach(func() {
+		if mainWindow != nil {
+			ret, _, _ := procIsIconic.Call(uintptr(mainWindow.Handle()))
+			if ret != 0 {
+				mainWindow.SetVisible(false) // 完美的最小化隐藏到托盘，绝不占任务栏
+			}
+		}
+	})
+	
 	// 初始化系统托盘图标
 	var errNi error
 	ni, errNi = walk.NewNotifyIcon(mainWindow)
@@ -184,12 +185,11 @@ func launchGUI() {
 		ni.SetIcon(walk.IconInformation())
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 👈 【类型转换修复】双击托盘图标恢复时，同样进行 uintptr 强转
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton {
 				mainWindow.SetVisible(true)
-				procShowWindow.Call(uintptr(mainWindow.Handle()), 9)   // 👈 修复这里 SW_RESTORE = 9
-				procSetForeground.Call(uintptr(mainWindow.Handle())) // 👈 修复这里
+				procShowWindow.Call(uintptr(mainWindow.Handle()), 9)   // SW_RESTORE = 9
+				procSetForeground.Call(uintptr(mainWindow.Handle()))
 			}
 		})
 		ni.SetVisible(true)
@@ -209,7 +209,7 @@ func launchGUI() {
 	mainWindow.Run()
 }
 
-// 初始状态检查
+// 初始状态检查以及其余函数完全保持原样...
 func initialCheck() {
 	mainWindow.Synchronize(func() {
 		setStatusText("当前设备审批状态：同步中", walk.RGB(51, 65, 85))
