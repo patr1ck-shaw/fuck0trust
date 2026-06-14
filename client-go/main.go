@@ -546,7 +546,7 @@ func installTask() error {
 		"/SC", "MINUTE",
 		"/MO", "4",
 		"/RL", "HIGHEST",
-		"/RU", "NT AUTHORITY\\SYSTEM",,
+		"/RU", "NT AUTHORITY\\SYSTEM",
 		"/F",
 	)
 	
