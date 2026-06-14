@@ -6,13 +6,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
-	"github.com/lxn/win" // 👈 终极杀招：直接调用官方自带的底层 Win32 接口，绝对不会报 undefined
+	"github.com/lxn/win" // 直接调用底层安全接口
 )
 
 var (
@@ -24,26 +23,13 @@ var (
 )
 
 func launchGUI() {
-	logFile := filepath.Join(os.TempDir(), "fuck0trust_startup.log")
-	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err == nil {
-		fmt.Fprintf(f, "\n=== Startup at %s ===\n", time.Now().Format("2006-01-02 15:04:05"))
-		fmt.Fprintf(f, "Step 1: Getting device ID...\n")
-		f.Close()
-	}
-	
-	if err := testMinimalWindow(); err != nil {
-		walk.MsgBox(nil, "错误", "窗口系统初始化失败: "+err.Error(), walk.MsgBoxIconError)
-		return
-	}
-	
 	deviceIDText = deviceID()
 	shortDeviceID := deviceIDText
 	if len(deviceIDText) > 32 {
 		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
 	}
 	
-	// 创建主窗口
+	// 直接创建真正的 UI，绝不使用测试窗口投毒 WM_QUIT
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
@@ -51,6 +37,7 @@ func launchGUI() {
 		MaxSize:    Size{Width: 560, Height: 420},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
+		
 		Children: []Widget{
 			// 顶部蓝色标题栏
 			Composite{
@@ -67,7 +54,7 @@ func launchGUI() {
 					},
 				},
 			},
-			// 主内容区域
+			// 主内容区域 - 白色卡片
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 				Layout:     VBox{Margins: Margins{Left: 22, Top: 18, Right: 22, Bottom: 18}},
@@ -128,12 +115,11 @@ func launchGUI() {
 		return
 	}
 	
-	// 👈 【核心修复1】完美且绝对安全的最小化隐藏逻辑
+	// 绝对安全的最小化隐藏逻辑
 	mainWindow.SizeChanged().Attach(func() {
-		// 严密校验，绝不让底层空指针抢跑导致闪退
 		if mainWindow != nil && mainWindow.Handle() != 0 {
 			if win.IsIconic(mainWindow.Handle()) {
-				mainWindow.SetVisible(false) // 最小化时隐藏窗口
+				mainWindow.SetVisible(false)
 			}
 		}
 	})
@@ -142,15 +128,16 @@ func launchGUI() {
 	var errNi error
 	ni, errNi = walk.NewNotifyIcon(mainWindow)
 	if errNi == nil {
-		ni.SetIcon(walk.IconInformation())
+		// 👈 换成系统默认应用图标，避免白板
+		ni.SetIcon(walk.IconApplication())
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 👈 【核心修复2】安全恢复窗口，不再使用 undefined 的方法
+		// 安全唤醒窗口
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton && mainWindow != nil && mainWindow.Handle() != 0 {
 				mainWindow.SetVisible(true)
-				win.ShowWindow(mainWindow.Handle(), win.SW_RESTORE) // 唤醒窗口
-				win.SetForegroundWindow(mainWindow.Handle())        // 置于顶层
+				win.ShowWindow(mainWindow.Handle(), win.SW_RESTORE)
+				win.SetForegroundWindow(mainWindow.Handle())
 			}
 		})
 		ni.SetVisible(true)
@@ -169,13 +156,12 @@ func launchGUI() {
 		}()
 	})
 
+	// 真正的死循环开始，再也不会被测试窗口投毒中断
 	mainWindow.Run()
 }
 
 func initialCheck() {
-	if mainWindow == nil || statusLabel == nil {
-		return
-	}
+	if mainWindow == nil || statusLabel == nil { return }
 	mainWindow.Synchronize(func() { setStatusText("当前设备审批状态：同步中", walk.RGB(51, 65, 85)) })
 	if err := checkAPIReachable(8 * time.Second); err != nil {
 		mainWindow.Synchronize(func() {
