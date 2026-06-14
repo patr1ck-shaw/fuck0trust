@@ -31,23 +31,28 @@ jobs:
         go mod download
         go mod tidy
       
-    - name: Install Wails CLI
-      run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+    # 1. 安装 rsrc 工具，用来在标准编译中把清单 manifest 内嵌进 exe
+    - name: Install rsrc tool
+      run: go install github.com/akavel/rsrc@latest
       
-    - name: Build with Wails
+    # 2. 利用 manifest 声明高 DPI、Windows 10/11 兼容性，生成 syso 编译临时资源
+    - name: Generate Windows Resource
       working-directory: client-go
-      run: wails build -clean -platform windows/amd64 -tags walkgui
+      run: rsrc -manifest fuck0trust.manifest -o rsrc.syso
       
-    - name: Rename output
+    # 3. 用 Go 原生高速编译（-ldflags="-s -w" 剔除调试信息压缩体积，-H=windowsgui 运行时隐藏黑命令行窗口）
+    - name: Build Native Windows Executable
+      working-directory: client-go
+      run: go build -tags walkgui -ldflags="-s -w -H=windowsgui" -o fuck0trust.exe .
+      
+    # 4. 验证生成的最终可执行文件是否存在
+    - name: Verify Executable
       working-directory: client-go
       run: |
-        if (Test-Path "build\bin\fuck0trust.exe") {
-          Copy-Item "build\bin\fuck0trust.exe" "fuck0trust.exe" -Force
-        } elseif (Test-Path "build\bin\client-go.exe") {
-          Copy-Item "build\bin\client-go.exe" "fuck0trust.exe" -Force
+        if (Test-Path "fuck0trust.exe") {
+          Write-Output "Native executable built successfully."
         } else {
-          Get-ChildItem "build\bin" -Recurse
-          throw "Wails output executable not found"
+          throw "Executable not found"
         }
       
     - name: Install UPX
