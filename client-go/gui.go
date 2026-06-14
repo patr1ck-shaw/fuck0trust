@@ -13,12 +13,12 @@ import (
 	. "github.com/lxn/walk/declarative"
 )
 
-
 var (
 	mainWindow   *walk.MainWindow
 	statusLabel  *walk.Label
 	noteEdit     *walk.LineEdit
 	deviceIDText string
+	ni           *walk.NotifyIcon // 👈 【新增】全局托盘图标句柄
 )
 
 func launchGUI() {
@@ -31,43 +31,32 @@ func launchGUI() {
 		f.Close()
 	}
 	
-	// 先测试最小化窗口能否创建
 	if err := testMinimalWindow(); err != nil {
-		if f, err2 := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err2 == nil {
-			fmt.Fprintf(f, "Minimal window test FAILED, aborting: %v\n", err)
-			f.Close()
-		}
 		walk.MsgBox(nil, "错误", "窗口系统初始化失败: "+err.Error(), walk.MsgBoxIconError)
 		return
 	}
 	
 	deviceIDText = deviceID()
-	
-	// 记录成功获取 deviceID
-	if f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-		fmt.Fprintf(f, "Step 2: Device ID obtained: %s\n", deviceIDText)
-		f.Close()
-	}
-	
 	shortDeviceID := deviceIDText
 	if len(deviceIDText) > 32 {
 		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
 	}
 	
-	// 记录开始创建窗口
-	if f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-		fmt.Fprintf(f, "Step 3: Creating main window...\n")
-		f.Close()
-	}
-	
 	if err := (MainWindow{
-		AssignTo: &mainWindow,
-		Title:    "Fuck0Trust",
-
-		MinSize:  Size{Width: 560, Height: 420},
-		MaxSize:  Size{Width: 560, Height: 420},
-		Layout:   VBox{MarginsZero: true, SpacingZero: true},
+		AssignTo:   &mainWindow,
+		Title:      "Fuck0Trust",
+		MinSize:    Size{Width: 560, Height: 420},
+		MaxSize:    Size{Width: 560, Height: 420},
+		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
+		
+		// 👈 【核心改动】监听窗口大小改变（点击最小化时）
+		OnSizeChanged: func() {
+			if mainWindow != nil && mainWindow.AsFormBase().SizeState() == walk.FormMin {
+				mainWindow.SetVisible(false) // 隐藏主窗口（不占用任务栏）
+			}
+		},
+		
 		Children: []Widget{
 			// 顶部蓝色标题栏
 			Composite{
@@ -79,7 +68,6 @@ func launchGUI() {
 					Label{
 						Text:       "Fuck0Trust",
 						Font:       Font{Family: "Microsoft YaHei", PointSize: 24, Bold: true},
-
 						TextColor:  walk.RGB(255, 255, 255),
 						Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)},
 					},
@@ -94,7 +82,6 @@ func launchGUI() {
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 						Layout:     VBox{Margins: Margins{Left: 22, Top: 18, Right: 22, Bottom: 18}, Spacing: 8},
 						Children: []Widget{
-							// 状态标签
 							Label{
 								AssignTo:   &statusLabel,
 								Text:       "当前设备审批状态：检测中",
@@ -103,7 +90,6 @@ func launchGUI() {
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 								MinSize:    Size{Height: 30},
 							},
-							// 设备 ID
 							Label{
 								Text:       "设备 ID：" + shortDeviceID,
 								Font:       Font{Family: "Microsoft YaHei", PointSize: 9},
@@ -112,20 +98,17 @@ func launchGUI() {
 								MinSize:    Size{Height: 20},
 							},
 							VSpacer{Size: 8},
-							// 申请备注标签
 							Label{
 								Text:       "联系方式（必填）：",
 								Font:       Font{Family: "Microsoft YaHei", PointSize: 9},
 								TextColor:  walk.RGB(51, 65, 85),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 							},
-							// 备注输入框
 							LineEdit{
 								AssignTo: &noteEdit,
 								MaxSize:  Size{Height: 26},
 							},
 							VSpacer{Size: 10},
-							// 按钮区域 - 3列2行布局
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 								Layout:     Grid{Columns: 3, Spacing: 8},
@@ -155,14 +138,12 @@ func launchGUI() {
 										MinSize:   Size{Width: 140, Height: 32},
 										OnClicked: guiRemoveTask,
 									},
-									// 占位符保持对齐
 									Composite{
 										Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 									},
 								},
 							},
 							VSpacer{Size: 8},
-							// 底部说明文字
 							Label{
 								Text:       "• 提示：首次使用请先提交审批，待管理员通过后再执行功能",
 								Font:       Font{Family: "Microsoft YaHei", PointSize: 8},
@@ -181,23 +162,36 @@ func launchGUI() {
 			},
 		},
 	}.Create()); err != nil {
-		// 记录窗口创建失败
-		if f, err2 := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err2 == nil {
-			fmt.Fprintf(f, "Step 4: FAILED to create window: %v\n", err)
-			f.Close()
-		}
 		walk.MsgBox(nil, "错误", "创建窗口失败: "+err.Error(), walk.MsgBoxIconError)
 		return
 	}
 	
-	// 记录窗口创建成功
-	if f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-		fmt.Fprintf(f, "Step 4: Window created successfully\n")
-		fmt.Fprintf(f, "Step 5: Starting main window event loop...\n")
-		f.Close()
+	// 👈 【新增】初始化右下角系统托盘图标逻辑
+	var errNi error
+	ni, errNi = walk.NewNotifyIcon(mainWindow)
+	if errNi == nil {
+		// 使用 Windows 系统默认的信息图标作为托盘图标（免去自己打包 .ico 资源的麻烦）
+		ni.SetIcon(walk.IconInformation())
+		ni.SetToolTip("Fuck0Trust 守护中")
+		
+		// 👈 双击右下角托盘图标：恢复并拉起主窗口显示
+		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+			if button == walk.LeftButton {
+				mainWindow.SetVisible(true)
+				walk.App().ActiveForm().AsFormBase().SetSizeState(walk.FormNormal)
+				mainWindow.BringToTop()
+			}
+		})
+		ni.SetVisible(true)
 	}
 
-	// 延迟 300ms 后执行初始检查
+	// 退出时自动清理释放托盘图标
+	defer func() {
+		if ni != nil {
+			ni.Dispose()
+		}
+	}()
+
 	go func() {
 		time.Sleep(300 * time.Millisecond)
 		initialCheck()

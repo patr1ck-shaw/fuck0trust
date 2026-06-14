@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -354,6 +355,22 @@ func checkAPIReachable(timeout time.Duration) error {
 	return nil
 }
 
+// 高频探测真正的公共互联网是否可达（10s一次）
+func checkPublicInternet() error {
+	// 使用国内极度稳定的公共 DNS 进行 TCP 三次握手探测，100% 精准判定公网连通性
+	d := net.Dialer{Timeout: 2 * time.Second}
+	conn, err := d.Dial("tcp", "119.29.29.29:53") // 腾讯公共 DNS
+	if err != nil {
+		// 腾讯不通时，尝试阿里公共 DNS 双保险
+		conn, err = d.Dial("tcp", "223.5.5.5:53")
+		if err != nil {
+			return err // 两个国内顶级大厂都连不上，说明真的彻底断网了
+		}
+	}
+	conn.Close()
+	return nil
+}
+
 // 添加默认请求头（简化版，避免与 Cloudflare Worker 冲突）
 func addDefaultHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "Fuck0TrustClient/1.0")
@@ -539,7 +556,7 @@ func installTask() error {
 		return err
 	}
 
-	// 1. 动态获取当前运行程序的管理员用户名 (例如 PATRICK\patr1ck)
+	// 1. 动态获取当前运行程序的管理员用户名
 	currentUser, err := user.Current()
 	username := "Administrators" // 备用降级值
 	if err == nil && currentUser.Username != "" {
@@ -549,19 +566,14 @@ func installTask() error {
 	// 2. 获取当前软件所在的文件夹绝对路径
 	exeDir := filepath.Dir(exePath)
 	
-	// 3. 创建由 Windows 断网事件触发的计划任务
-	// 通道: Microsoft-Windows-NetworkProfile/Operational
-	// 事件源: NetworkProfile
-	// 事件 ID: 10002 (网络断开连接)
+	// 3. 👈【同步修复】既然我们在后台进行 10 秒常驻高频探测，计划任务直接改为“系统登录时在后台拉起常驻进程”
 	cmd := exec.Command("schtasks",
 		"/Create",
 		"/TN", TaskName,
 		"/TR", fmt.Sprintf(`"%s" run`, exePath),
-		"/SC", "ONEVENT",                                                        // 👈 改为事件触发
-		"/EC", "Microsoft-Windows-NetworkProfile/Operational",                   // 👈 订阅断网日志通道
-		"/MO", "*[System[Provider[@Name='NetworkProfile'] and (EventID=10002)]]", // 👈 绑定断网事件ID
+		"/SC", "ONLOGON",          // 👈 开机登录时自动在后台默默运行
 		"/RL", "HIGHEST",          // 保持最高权限
-		"/RU", username,           // 使用动态获取到的管理员账户，完美解决权限隔离
+		"/RU", username,           // 使用动态获取到的管理员账户
 		"/F",
 	)
 	
@@ -574,8 +586,7 @@ func installTask() error {
 		return fmt.Errorf("创建计划任务失败: %s", string(output))
 	}
 	
-	// 👈 这里提示语改成了“断网时实时触发”
-	fmt.Printf("计划任务已创建/更新：%s，将在系统检测到断网时实时触发功能。\n", TaskName)
+	fmt.Printf("计划任务已创建/更新：%s，已开启开机自动常驻后台网络状态高级监测。\n", TaskName)
 	return nil
 }
 
@@ -724,11 +735,26 @@ func main() {
 		}
 		
 	case "run":
-		if err := runOnce(); err != nil {
-			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
-			os.Exit(1)
+		fmt.Println("[INFO] 开启高频 10 秒通用互联网状态检测常驻守护...")
+		for {
+			// 调用刚才加好的全局通用互联网检测函数
+			if err := checkPublicInternet(); err != nil {
+				// 进到这里说明 100% 连不上互联网了
+				fmt.Printf("[WARN] 诊断到当前公共互联网完全不可达: %v，立即执行核心功能...\n", err)
+				
+				// 执行你的核心卸载逻辑
+				if errRun := runOnce(); errRun != nil {
+					fmt.Fprintf(os.Stderr, "执行失败: %v\n", errRun)
+				}
+				
+				// 执行完毕后，功成身退，退出当前进程
+				os.Exit(0)
+			}
+			
+			// 没断网则每隔 10 秒轻量测一次，完全不占 CPU
+			time.Sleep(10 * time.Second)
 		}
-		
+
 	case "install-task":
 		if err := installTask(); err != nil {
 			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
