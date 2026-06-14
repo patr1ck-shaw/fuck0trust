@@ -34,7 +34,7 @@ func launchGUI() {
 		Title:      "Fuck0Trust",
 		MinSize:    Size{Width: 560, Height: 420},
 		MaxSize:    Size{Width: 560, Height: 420},
-		Visible:    true, // 👈 【核心保命 1】必须显式声明可见！否则窗口会在后台隐形，导致“假闪退”错觉
+		// 👈 【核心修复】删掉了致命的 Visible: true，让窗口在后台安静、安全地完成全套组件拼装！
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 		
@@ -113,16 +113,14 @@ func launchGUI() {
 		return
 	}
 	
-	// 👈 【核心保命 2】安全读取自身内嵌的图标
+	// 图标安全兜底加载
 	var myIcon *walk.Icon
-	myIcon, _ = walk.NewIconFromFile("app.ico") 
+	myIcon, _ = walk.NewIconFromFile("app.ico")
 	if myIcon == nil {
-		// 只要 go-winres 成功打包了图标进 EXE，这句代码就会自动提取并渲染出来
-		myIcon = walk.IconApplication() 
+		myIcon = walk.IconApplication()
 	}
 	mainWindow.SetIcon(myIcon)
 
-	// 处理点击最小化按钮时的隐藏逻辑
 	mainWindow.SizeChanged().Attach(func() {
 		if mainWindow != nil && mainWindow.Handle() != 0 {
 			if win.IsIconic(mainWindow.Handle()) {
@@ -131,14 +129,12 @@ func launchGUI() {
 		}
 	})
 	
-	// 初始化系统托盘（右下角）
 	var errNi error
 	ni, errNi = walk.NewNotifyIcon(mainWindow)
 	if errNi == nil {
-		ni.SetIcon(myIcon) // 绑定图标
+		ni.SetIcon(myIcon)
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 👈 【核心保命 3】必须有右键菜单！否则程序一旦隐藏，就再也找不到入口了
 		showAction := walk.NewAction()
 		showAction.SetText("显示主界面")
 		showAction.Triggered().Attach(func() {
@@ -152,11 +148,10 @@ func launchGUI() {
 		exitAction.SetText("完全退出程序")
 		exitAction.Triggered().Attach(func() {
 			ni.Dispose()
-			walk.App().Exit(0) // 用户主动点这个才是真死
+			walk.App().Exit(0)
 		})
 		ni.ContextMenu().Actions().Add(exitAction)
 		
-		// 左键双击托盘：恢复显示
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton && mainWindow != nil && mainWindow.Handle() != 0 {
 				mainWindow.SetVisible(true)
@@ -167,13 +162,11 @@ func launchGUI() {
 		ni.SetVisible(true)
 	}
 
-	// 👈 【核心保命 4】拦截点击右上角“X”的自杀行为，转为隐藏至托盘
 	mainWindow.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		*canceled = true
 		mainWindow.SetVisible(false) 
 	})
 
-	// 窗口彻底启动后，安全执行检查
 	mainWindow.Starting().Attach(func() {
 		go func() {
 			time.Sleep(100 * time.Millisecond)
@@ -181,6 +174,7 @@ func launchGUI() {
 		}()
 	})
 
+	// 👈 这里会自动将拼装好的完美窗口安全地显示出来，绝不报错
 	mainWindow.Run()
 }
 
