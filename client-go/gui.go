@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings" // 👈 【已补上】修复第 259 行的 strings undefined 报错
+	"strings"
+	"syscall" // 👈 引入系统底层调用
 	"time"
 
 	"github.com/lxn/walk"
@@ -20,6 +21,12 @@ var (
 	noteEdit     *walk.LineEdit
 	deviceIDText string
 	ni           *walk.NotifyIcon
+	
+	// 👈 声明 Windows 原生 user32.dll 句柄
+	user32           = syscall.NewLazyDLL("user32.dll")
+	procIsIconic     = user32.NewProc("IsIconic")
+	procShowWindow   = user32.NewProc("ShowWindow")
+	procSetForeground = user32.NewProc("SetForegroundWindow")
 )
 
 func launchGUI() {
@@ -51,10 +58,13 @@ func launchGUI() {
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 		
-		// 👈 【核心修复】利用 walk 原生安全的 WindowState 方法完美捕获并隐藏最小化窗口
+		// 👈 【Win32 修复】使用 IsIconic 检测是否点击了最小化按钮
 		OnSizeChanged: func() {
-			if mainWindow != nil && mainWindow.WindowState() == walk.WindowStateMinimized {
-				mainWindow.SetVisible(false) // 隐藏主窗口（从任务栏完全消失）
+			if mainWindow != nil {
+				ret, _, _ := procIsIconic.Call(mainWindow.Handle())
+				if ret != 0 {
+					mainWindow.SetVisible(false) // 隐藏主窗口，从任务栏彻底消失
+				}
 			}
 		},
 		
@@ -174,12 +184,12 @@ func launchGUI() {
 		ni.SetIcon(walk.IconInformation())
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 👈 【核心修复】双击托盘图标恢复时，完美联动 walk 的 WindowStateNormal
+		// 👈 【Win32 修复】双击托盘图标恢复时，直接向句柄发送 SW_RESTORE (9) 指令弹回主窗口
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton {
 				mainWindow.SetVisible(true)
-				mainWindow.SetWindowState(walk.WindowStateNormal)
-				mainWindow.BringToTop()
+				procShowWindow.Call(mainWindow.Handle(), 9) // SW_RESTORE = 9
+				procSetForeground.Call(mainWindow.Handle())
 			}
 		})
 		ni.SetVisible(true)
