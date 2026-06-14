@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings" // 👈 【已补上】修复第 259 行的 strings undefined 报错
 	"time"
 
 	"github.com/lxn/walk"
@@ -18,7 +19,7 @@ var (
 	statusLabel  *walk.Label
 	noteEdit     *walk.LineEdit
 	deviceIDText string
-	ni           *walk.NotifyIcon // 👈 【新增】全局托盘图标句柄
+	ni           *walk.NotifyIcon
 )
 
 func launchGUI() {
@@ -50,10 +51,10 @@ func launchGUI() {
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 		
-		// 👈 【核心改动】监听窗口大小改变（点击最小化时）
+		// 👈 【核心修复】利用 walk 原生安全的 WindowState 方法完美捕获并隐藏最小化窗口
 		OnSizeChanged: func() {
-			if mainWindow != nil && mainWindow.AsFormBase().SizeState() == walk.FormMin {
-				mainWindow.SetVisible(false) // 隐藏主窗口（不占用任务栏）
+			if mainWindow != nil && mainWindow.WindowState() == walk.WindowStateMinimized {
+				mainWindow.SetVisible(false) // 隐藏主窗口（从任务栏完全消失）
 			}
 		},
 		
@@ -166,26 +167,24 @@ func launchGUI() {
 		return
 	}
 	
-	// 👈 【新增】初始化右下角系统托盘图标逻辑
+	// 初始化系统托盘图标
 	var errNi error
 	ni, errNi = walk.NewNotifyIcon(mainWindow)
 	if errNi == nil {
-		// 使用 Windows 系统默认的信息图标作为托盘图标（免去自己打包 .ico 资源的麻烦）
 		ni.SetIcon(walk.IconInformation())
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 👈 双击右下角托盘图标：恢复并拉起主窗口显示
+		// 👈 【核心修复】双击托盘图标恢复时，完美联动 walk 的 WindowStateNormal
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton {
 				mainWindow.SetVisible(true)
-				walk.App().ActiveForm().AsFormBase().SetSizeState(walk.FormNormal)
+				mainWindow.SetWindowState(walk.WindowStateNormal)
 				mainWindow.BringToTop()
 			}
 		})
 		ni.SetVisible(true)
 	}
 
-	// 退出时自动清理释放托盘图标
 	defer func() {
 		if ni != nil {
 			ni.Dispose()
@@ -206,7 +205,6 @@ func initialCheck() {
 		setStatusText("当前设备审批状态：同步中", walk.RGB(51, 65, 85))
 	})
 
-	// 先检查网络连通性
 	if err := checkAPIReachable(8 * time.Second); err != nil {
 		mainWindow.Synchronize(func() {
 			setStatusText("当前设备审批状态：网络异常", walk.RGB(146, 64, 14))
@@ -217,7 +215,6 @@ func initialCheck() {
 		return
 	}
 
-	// 刷新审批状态
 	status, err := refreshApprovalFromAPI(10 * time.Second)
 	if err != nil {
 		mainWindow.Synchronize(func() {
@@ -239,13 +236,11 @@ func initialCheck() {
 	})
 }
 
-// 设置状态文本和颜色
 func setStatusText(text string, color walk.Color) {
 	statusLabel.SetText(text)
 	statusLabel.SetTextColor(color)
 }
 
-// 更新状态标签
 func updateStatusLabel(approved bool) {
 	if approved {
 		setStatusText("当前设备审批状态：已通过", walk.RGB(22, 101, 52))
@@ -254,16 +249,12 @@ func updateStatusLabel(approved bool) {
 	}
 }
 
-// GUI - 提交审批
 func guiRequestApproval() {
-	note := strings.TrimSpace(noteEdit.Text()) // 👈 改为 Trim 后拿取文本
-	
-	// 👈 新增：非空拦截提示
+	note := strings.TrimSpace(noteEdit.Text())
 	if note == "" {
 		walk.MsgBox(mainWindow, "提示", "请填写你的可联系方式，否则申请不予通过", walk.MsgBoxIconWarning)
 		return
 	}
-	// 在后台线程执行
 	go func() {
 		err := requestApproval(note)
 		mainWindow.Synchronize(func() {
@@ -271,7 +262,6 @@ func guiRequestApproval() {
 				walk.MsgBox(mainWindow, "执行失败", sanitizeError(err), walk.MsgBoxIconError)
 				return
 			}
-
 			walk.MsgBox(mainWindow, "已提交", 
 				"已提交待管理员审批。\n同一设备 24 小时内只能提交一次审批。", 
 				walk.MsgBoxIconInformation)
@@ -279,7 +269,6 @@ func guiRequestApproval() {
 	}()
 }
 
-// GUI - 同步审批状态
 func guiSyncStatus() {
 	go func() {
 		status, err := refreshApprovalFromAPI(10 * time.Second)
@@ -304,7 +293,6 @@ func guiSyncStatus() {
 	}()
 }
 
-// GUI - 执行一次
 func guiRunOnce() {
 	go func() {
 		err := runOnce()
@@ -318,7 +306,6 @@ func guiRunOnce() {
 	}()
 }
 
-// GUI - 安装计划任务
 func guiInstallTask() {
 	go func() {
 		err := installTask()
@@ -328,13 +315,12 @@ func guiInstallTask() {
 				return
 			}
 			walk.MsgBox(mainWindow, "安装完成", 
-				fmt.Sprintf("计划任务已创建/更新：%s，每 4 分钟执行一次。", TaskName), 
+				fmt.Sprintf("计划任务已创建/更新：%s，已开启开机自动常驻后台网络状态高级监测。", TaskName), 
 				walk.MsgBoxIconInformation)
 		})
 	}()
 }
 
-// GUI - 删除计划任务
 func guiRemoveTask() {
 	go func() {
 		err := removeTask()
@@ -349,6 +335,3 @@ func guiRemoveTask() {
 		})
 	}()
 }
-
-
-
