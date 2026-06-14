@@ -11,7 +11,7 @@ import (
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
-	"github.com/lxn/win" // 直接调用底层安全接口
+	"github.com/lxn/win"
 )
 
 var (
@@ -29,7 +29,6 @@ func launchGUI() {
 		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
 	}
 	
-	// 直接创建真正的 UI，绝不使用测试窗口投毒 WM_QUIT
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
@@ -39,7 +38,6 @@ func launchGUI() {
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 		
 		Children: []Widget{
-			// 顶部蓝色标题栏
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)},
 				MinSize:    Size{Height: 82},
@@ -54,7 +52,6 @@ func launchGUI() {
 					},
 				},
 			},
-			// 主内容区域 - 白色卡片
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 				Layout:     VBox{Margins: Margins{Left: 22, Top: 18, Right: 22, Bottom: 18}},
@@ -115,7 +112,19 @@ func launchGUI() {
 		return
 	}
 	
-	// 绝对安全的最小化隐藏逻辑
+	// 👈 【终极修复 1】主动提取并应用你打包进来的自定义图标！
+	var myIcon *walk.Icon
+	myIcon, err := walk.NewIconFromResourceId(1) // 1 是 rsrc 打包进去的默认资源 ID
+	if err != nil {
+		myIcon, _ = walk.NewIconFromFile("app.ico") // 备选：如果提取失败，尝试读取同目录文件
+	}
+	if myIcon == nil {
+		myIcon = walk.IconApplication() // 最后兜底
+	}
+	
+	// 设置左上角和任务栏的图标
+	mainWindow.SetIcon(myIcon)
+
 	mainWindow.SizeChanged().Attach(func() {
 		if mainWindow != nil && mainWindow.Handle() != 0 {
 			if win.IsIconic(mainWindow.Handle()) {
@@ -124,15 +133,31 @@ func launchGUI() {
 		}
 	})
 	
-	// 初始化系统托盘
 	var errNi error
 	ni, errNi = walk.NewNotifyIcon(mainWindow)
 	if errNi == nil {
-		// 👈 换成系统默认应用图标，避免白板
-		ni.SetIcon(walk.IconApplication())
+		// 👈 托盘也换成你的专属图标
+		ni.SetIcon(myIcon)
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
-		// 安全唤醒窗口
+		// 👈 【终极修复 2】补全右键菜单，否则无法真正退出
+		showAction := walk.NewAction()
+		showAction.SetText("显示主界面")
+		showAction.Triggered().Attach(func() {
+			mainWindow.SetVisible(true)
+			win.ShowWindow(mainWindow.Handle(), win.SW_RESTORE)
+			win.SetForegroundWindow(mainWindow.Handle())
+		})
+		ni.ContextMenu().Actions().Add(showAction)
+
+		exitAction := walk.NewAction()
+		exitAction.SetText("完全退出程序")
+		exitAction.Triggered().Attach(func() {
+			ni.Dispose()
+			walk.App().Exit(0) // 只有点击这里，才是真正的退出
+		})
+		ni.ContextMenu().Actions().Add(exitAction)
+		
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton && mainWindow != nil && mainWindow.Handle() != 0 {
 				mainWindow.SetVisible(true)
@@ -143,10 +168,10 @@ func launchGUI() {
 		ni.SetVisible(true)
 	}
 
+	// 👈 【防闪退核心】拦截窗口右上角的 X 关闭事件，不再让它静默退出，而是隐藏至托盘！
 	mainWindow.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
-		if ni != nil {
-			ni.Dispose()
-		}
+		*canceled = true
+		mainWindow.SetVisible(false) 
 	})
 
 	mainWindow.Starting().Attach(func() {
@@ -156,7 +181,6 @@ func launchGUI() {
 		}()
 	})
 
-	// 真正的死循环开始，再也不会被测试窗口投毒中断
 	mainWindow.Run()
 }
 
