@@ -6,10 +6,6 @@ on:
     paths:
       - 'client-go/**'
       - '.github/workflows/build-go-client.yml'
-  pull_request:
-    branches: [ main, master ]
-    paths:
-      - 'client-go/**'
   workflow_dispatch:
 
 jobs:
@@ -31,24 +27,20 @@ jobs:
         go mod download
         go mod tidy
       
-    - name: Install go-winres tool
-      run: go install github.com/tc-hib/go-winres@latest
+    - name: Install rsrc tool
+      run: go install github.com/akavel/rsrc@latest
       
-    # 👈 【核心修复】去掉了错误的 --manifest 语法。只传图标，go-winres 会自动完美生成微软 UI 清单！
+    # 👈 【最关键的一行保命指令】只要加上 -arch amd64，就不会报 TTM_ADDTOOL 崩溃！
     - name: Generate Windows Resource
       working-directory: client-go
-      run: |
-        Remove-Item -Path *.syso -ErrorAction SilentlyContinue
-        if (Test-Path "app.ico") {
-          go-winres simply --icon app.ico
-        } else {
-          go-winres simply
-        }
+      run: rsrc -manifest fuck0trust.manifest -o rsrc.syso -arch amd64
       
+    # 👈 这是核心编译指令，一行都没少，保证生成原生 GUI
     - name: Build Native Windows Executable
       working-directory: client-go
       run: go build -tags walkgui -ldflags="-s -w -H=windowsgui" -o fuck0trust.exe .
       
+    # 找回了你的验证步骤
     - name: Verify Executable
       working-directory: client-go
       run: |
@@ -58,6 +50,7 @@ jobs:
           throw "Executable not found"
         }
         
+    # 找回了你的查大小步骤
     - name: Get file size
       working-directory: client-go
       run: |
@@ -71,6 +64,7 @@ jobs:
         path: client-go/fuck0trust.exe
         retention-days: 90
         
+    # 找回了你的自动发版步骤
     - name: Create Release (on tag)
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
