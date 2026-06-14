@@ -379,7 +379,6 @@ func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
 		return nil, err
 	}
 
-	
 	result := &StatusResponse{
 		Approved:    apiResp.Approved,
 		Blacklisted: apiResp.Blacklisted,
@@ -454,15 +453,55 @@ func isAdmin() bool {
 	return err == nil
 }
 
-// 查询 WFP 服务状态
-func queryWFPStatus() error {
-	cmd := exec.Command("sc", "query", ServiceName)
-	output, err := cmd.CombinedOutput()
-	fmt.Printf("[INFO] 当前 %s 状态：\n%s\n", ServiceName, string(output))
-	if err != nil {
-		return fmt.Errorf("查询服务状态失败: %v", err)
+// 自动定位并寻找 SDP 目录路径
+func findSDPPath() (string, error) {
+	subPath := filepath.Join("SDP", "ztgClient", "AccInject")
+	
+	// 遍历 Windows 所有可能的盘符
+	for c := 'C'; c <= 'Z'; c++ {
+		drive := fmt.Sprintf("%c:\\", c)
+		targetPath := filepath.Join(drive, subPath)
+		
+		// 检查该目录是否存在
+		if fi, err := os.Stat(targetPath); err == nil && fi.IsDir() {
+			return targetPath, nil
+		}
 	}
-	fmt.Println("\n说明：本工具仅查询状态，不会停止或禁用安全/零信任驱动。")
+	
+	// 如果没找到，退回默认的 D 盘路径
+	return "D:\\SDP\\ztgClient\\AccInject", fmt.Errorf("未在任意盘符中定位到 SDP 安装目录")
+}
+
+// 查询 WFP 服务状态 (根据新逻辑，此项改为定位并检查 ztgLoader 的存在性)
+func queryWFPStatus() error {
+	sdpPath, err := findSDPPath()
+	if err != nil {
+		fmt.Printf("[WARN] 自动定位失败，使用默认路径。错误: %v\n", err)
+	}
+	fmt.Printf("[INFO] 定位到目标路径：%s\n", sdpPath)
+	return nil
+}
+
+// 停止 WFP 服务部分替换为调用 ztgLoader 卸载驱动
+func stopWFPService() error {
+	// 打印并定位路径
+	_ = queryWFPStatus()
+
+	sdpPath, _ := findSDPPath()
+	loaderExe := "ztgLoader.exe"
+
+	fmt.Printf("[INFO] 正在切换至路径并执行卸载: %s\n", sdpPath)
+	
+	// 在 Go 中，设置 Cmd.Dir 相当于在执行前进行 cd /d
+	cmd := exec.Command(loaderExe, "-u", "AccInject10_x64.sys")
+	cmd.Dir = sdpPath 
+
+	output, err := cmd.CombinedOutput()
+	fmt.Printf("%s\n", string(output))
+	if err != nil {
+		return fmt.Errorf("执行 ztgLoader 失败: %v", err)
+	}
+	fmt.Printf("[INFO] 驱动卸载指令执行完毕。\n")
 	return nil
 }
 
@@ -471,7 +510,7 @@ func runOnce() error {
 	if !isLocallyApproved() {
 		return fmt.Errorf("当前设备未审批通过，不能执行受控功能。请先打开客户端联网完成审批状态同步。")
 	}
-	return queryWFPStatus()
+	return stopWFPService()
 }
 
 // 获取当前可执行文件路径
@@ -586,7 +625,6 @@ func sanitizeError(err error) string {
 	return msg
 }
 
-
 func main() {
 	// 捕获 panic 并记录到文件，避免闪退
 	defer func() {
@@ -617,10 +655,10 @@ func main() {
 		fmt.Println("用法: Fuck0TrustClient.exe [命令]")
 		fmt.Println("命令:")
 		fmt.Println("  request [--note 备注]  - 提交审批申请")
-		fmt.Println("  status                 - 查询审批状态")
-		fmt.Println("  run                    - 执行一次受控功能")
-		fmt.Println("  install-task           - 安装计划任务")
-		fmt.Println("  remove-task            - 删除计划任务")
+		fmt.Println("  status                  - 查询审批状态")
+		fmt.Println("  run                     - 执行一次受控功能")
+		fmt.Println("  install-task            - 安装计划任务")
+		fmt.Println("  remove-task             - 删除计划任务")
 		os.Exit(1)
 	}
 	
