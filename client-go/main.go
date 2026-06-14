@@ -494,7 +494,9 @@ func stopWFPService() error {
 	
 	// 在 Go 中，设置 Cmd.Dir 相当于在执行前进行 cd /d
 	cmd := exec.Command(loaderExe, "-u", "AccInject10_x64.sys")
-	cmd.Dir = sdpPath 
+	cmd.Dir = sdpPath
+	
+	hideWindow(cmd)
 
 	output, err := cmd.CombinedOutput()
 	fmt.Printf("%s\n", string(output))
@@ -540,6 +542,7 @@ func installTask() error {
 		"/SC", "MINUTE",
 		"/MO", "4",
 		"/RL", "HIGHEST",
+		"/RU", "NT AUTHORITY\SYSTEM",
 		"/F",
 	)
 	
