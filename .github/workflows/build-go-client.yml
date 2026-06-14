@@ -10,7 +10,8 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # 修复1：把 latest 改成 2019（解决系统兼容）
+    runs-on: windows-2019
     
     steps:
     - name: Checkout code
@@ -30,17 +31,20 @@ jobs:
     - name: Install rsrc tool
       run: go install github.com/akavel/rsrc@latest
       
-    # 👈 【最关键的一行保命指令】只要加上 -arch amd64，就不会报 TTM_ADDTOOL 崩溃！
     - name: Generate Windows Resource
       working-directory: client-go
       run: rsrc -manifest fuck0trust.manifest -o rsrc.syso -arch amd64
       
-    # 👈 这是核心编译指令，一行都没少，保证生成原生 GUI
+    # 修复2：编译命令（核心！去掉 -s -w，开启CGO，保留你所有原有参数）
     - name: Build Native Windows Executable
       working-directory: client-go
-      run: go build -tags walkgui -ldflags="-s -w -H=windowsgui" -o fuck0trust.exe .
+      run: |
+        set CGO_ENABLED=1
+        set GOOS=windows
+        set GOARCH=amd64
+        go build -tags walkgui -ldflags="-H=windowsgui" -o fuck0trust.exe .
+      shell: cmd
       
-    # 找回了你的验证步骤
     - name: Verify Executable
       working-directory: client-go
       run: |
@@ -50,7 +54,6 @@ jobs:
           throw "Executable not found"
         }
         
-    # 找回了你的查大小步骤
     - name: Get file size
       working-directory: client-go
       run: |
@@ -64,7 +67,6 @@ jobs:
         path: client-go/fuck0trust.exe
         retention-days: 90
         
-    # 找回了你的自动发版步骤
     - name: Create Release (on tag)
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
