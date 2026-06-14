@@ -34,7 +34,6 @@ func launchGUI() {
 		Title:      "Fuck0Trust",
 		MinSize:    Size{Width: 560, Height: 420},
 		MaxSize:    Size{Width: 560, Height: 420},
-		// 👈 【核心修复】删掉了致命的 Visible: true，让窗口在后台安静、安全地完成全套组件拼装！
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
 		
@@ -113,11 +112,16 @@ func launchGUI() {
 		return
 	}
 	
-	// 图标安全兜底加载
+	// 👈 【防隐身绝杀】手动强制显示窗口！打破双击没反应的隐身错觉！
+	mainWindow.SetVisible(true)
+	win.ShowWindow(mainWindow.Handle(), win.SW_NORMAL)
+	win.SetForegroundWindow(mainWindow.Handle())
+
+	// 👈 【绝对防弹的加载图标】如果旁边没有合法的 app.ico，强制使用系统自带的【蓝色信息图标】，保证托盘绝对不会因为空值而消失！
 	var myIcon *walk.Icon
 	myIcon, _ = walk.NewIconFromFile("app.ico")
 	if myIcon == nil {
-		myIcon = walk.IconApplication()
+		myIcon = walk.IconInformation()
 	}
 	mainWindow.SetIcon(myIcon)
 
@@ -174,7 +178,6 @@ func launchGUI() {
 		}()
 	})
 
-	// 👈 这里会自动将拼装好的完美窗口安全地显示出来，绝不报错
 	mainWindow.Run()
 }
 
