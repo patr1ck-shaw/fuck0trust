@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     # 修复1：把 latest 改成 2019（解决系统兼容）
-    runs-on: windows-2019
+    runs-on: windows-latest
     
     steps:
     - name: Checkout code
