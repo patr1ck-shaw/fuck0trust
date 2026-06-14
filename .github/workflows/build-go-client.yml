@@ -36,7 +36,7 @@ jobs:
       
     - name: Build with Wails
       working-directory: client-go
-      run: wails build -clean -platform windows/amd64 -tags desktop
+      run: wails build -clean -platform windows/amd64 -tags walkgui
       
     - name: Rename output
       working-directory: client-go
