@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +12,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-	"runtime/debug" // 👈 【新增引入】用于打印崩溃时的精准红字代码行数
+	"runtime/debug" // 👈 【已补上】用于打印崩溃时的精准红字代码行数
 	"strings"
 	"syscall"
 	"time"
@@ -21,8 +20,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-//go:embed all:frontend
-var assets embed.FS
+// 👈 【核心修复】移除了原本卡死二进制文件头的 var assets embed.FS 残留，彻底解决 DEP 拦截导致的秒闪退
 
 const (
 	AppName                 = "Fuck0TrustApprovalClient"
@@ -37,7 +35,7 @@ const (
 var (
 	configDir  string
 	configFile string
-	// 👈 【优化】废弃全局未初始化的 httpClient 指针，改为局部自闭环客户端，彻底根除抢跑引发的闪退
+	// 👈 【优化】关闭全局可能由于抢跑引发 nil 指针崩溃的全局变量，全面切到局部的封闭式 http 客户端
 )
 
 func init() {
@@ -276,7 +274,7 @@ type StatusResponse struct {
 	Record      map[string]interface{}
 }
 
-// 👈【全新修改】确保创建 HttpClient 时拥有独立的作用域，不和 Wails 的全局环境耦合绑定
+// newHTTPClient 创建禁用 keep-alive 的 HTTP 客户端，避免 Cloudflare 复用连接导致的 EOF/握手错误
 func newHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
@@ -295,7 +293,7 @@ func doWithRetry(method, url string, body string, timeout time.Duration) (*http.
 	var lastErr error
 	maxAttempts := 3
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		client := newHTTPClient(timeout) // 👈 每次重试和调用都使用闭环安全的轻量 client
+		client := newHTTPClient(timeout)
 		var reqBody io.Reader
 		if body != "" {
 			reqBody = strings.NewReader(body)
@@ -431,7 +429,7 @@ func requestApproval(note string) error {
 		return err
 	}
 	
-	// 👈【全新修复】不再使用外部可能为 nil 的全局 httpClient 指针，采用局部隔离请求
+	// 👈【全新修复】废除全局未分配的 httpClient，由局部隔离客户端彻底保护并发安全
 	client := newHTTPClient(DefaultConnectTimeout + DefaultReadTimeout)
 	req, err := http.NewRequest("POST", APIBase+"/api/request", strings.NewReader(string(jsonData)))
 	if err != nil {
@@ -483,7 +481,7 @@ func findSDPPath() (string, error) {
 	return "D:\\SDP\\ztgClient\\AccInject", fmt.Errorf("未在任意盘符中定位到 SDP 安装目录")
 }
 
-// 查询 WFP 服务 status (根据新逻辑，此项改为定位并检查 ztgLoader 的存在性)
+// 查询 WFP 服务状态 (根据新逻辑，此项改为定位并检查 ztgLoader 的存在性)
 func queryWFPStatus() error {
 	sdpPath, err := findSDPPath()
 	if err != nil {
@@ -499,7 +497,7 @@ func stopWFPService() error {
 	_ = queryWFPStatus()
 
 	sdpPath, _ := findSDPPath()
-	loaderExe := filepath.Join(sdpPath, "ztgLoader.exe") // 修改为绝对路径
+	loaderExe := filepath.Join(sdpPath, "ztgLoader.exe")
 
 	fmt.Printf("[INFO] 正在切换至路径并执行卸载: %s\n", sdpPath)
 	
@@ -546,17 +544,17 @@ func installTask() error {
 		return err
 	}
 
-	// 动态获取当前运行程序的管理员用户名
+	// 1. 动态获取当前运行程序的管理员用户名
 	currentUser, err := user.Current()
 	username := "Administrators" // 备用降级值
 	if err == nil && currentUser.Username != "" {
 		username = currentUser.Username
 	}
 	
-	// 获取当前软件所在的文件夹绝对路径
+	// 2. 获取当前 software 所在的文件夹绝对路径
 	exeDir := filepath.Dir(exePath)
 	
-	// 既然我们在后台进行 10 秒常驻高频探测，计划任务直接改为“系统登录时在后台拉起常驻进程”
+	// 3. 既然我们在后台进行 10 秒常驻高频探测，计划任务直接改为“系统登录时在后台拉起常驻进程”
 	cmd := exec.Command("schtasks",
 		"/Create",
 		"/TN", TaskName,
@@ -567,7 +565,7 @@ func installTask() error {
 		"/F",
 	)
 	
-	// 确保执行时以当前程序所在文件夹作为起点
+	// 4. 确保执行时以当前程序所在文件夹作为起点
 	cmd.Dir = exeDir
 	hideWindow(cmd)
 	
@@ -663,7 +661,7 @@ func main() {
 				fmt.Fprintf(f, "\n=== Crash at %s ===\n", time.Now().Format("2006-01-02 15:04:05"))
 				fmt.Fprintf(f, "Panic: %v\n", r)
 				fmt.Fprintf(f, "Device ID: %s\n", deviceID())
-				f.Write(debug.Stack()) // 👈 【核心修复】直接抓取抛出异常的底层精准代码行，打破玄学
+				f.Write(debug.Stack()) // 👈 【核心修复】直接暴露精准崩溃函数位置，不留任何死角
 				f.Close()
 			}
 			// 生产环境不重新抛出 panic，避免闪退
