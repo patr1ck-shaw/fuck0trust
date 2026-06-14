@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall" // 引入系统底层调用
 	"time"
 
 	"github.com/lxn/walk"
@@ -21,12 +20,6 @@ var (
 	noteEdit     *walk.LineEdit
 	deviceIDText string
 	ni           *walk.NotifyIcon
-	
-	// 声明 Windows 原生 user32.dll 句柄
-	user32           = syscall.NewLazyDLL("user32.dll")
-	procIsIconic     = user32.NewProc("IsIconic")
-	procShowWindow   = user32.NewProc("ShowWindow")
-	procSetForeground = user32.NewProc("SetForegroundWindow")
 )
 
 func launchGUI() {
@@ -50,7 +43,6 @@ func launchGUI() {
 		shortDeviceID = deviceIDText[:16] + "..." + deviceIDText[len(deviceIDText)-8:]
 	}
 	
-	// 👈 【核心修复 1】把 OnSizeChanged 属性从大块声明内部完全移除，避免窗口创建期间出现 nil 指针抢跑引发的崩溃
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
@@ -58,6 +50,13 @@ func launchGUI() {
 		MaxSize:    Size{Width: 560, Height: 420},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(246, 247, 251)},
+		
+		// 👈 【原生优化 1】直接通过 Walk 原生的 SizeChanged 捕获最小化，杜绝 Win32 API 转换导致的类型冲突
+		OnSizeChanged: func() {
+			if mainWindow != nil && mainWindow.AsFormBase().SizeState() == walk.FormMin {
+				mainWindow.SetVisible(false) // 隐藏主窗口（完全不占任务栏）
+			}
+		},
 		
 		Children: []Widget{
 			// 顶部蓝色标题栏
@@ -168,49 +167,48 @@ func launchGUI() {
 		return
 	}
 	
-	// 👈 【核心修复 2】整个窗口完全创建并赋值成功后，再动态安全绑定 OnSizeChanged 事件
-	mainWindow.SizeChanged().Attach(func() {
-		if mainWindow != nil {
-			ret, _, _ := procIsIconic.Call(uintptr(mainWindow.Handle()))
-			if ret != 0 {
-				mainWindow.SetVisible(false) // 完美的最小化隐藏到托盘，绝不占任务栏
-			}
-		}
-	})
-	
-	// 初始化系统托盘图标
+	// 👈 【原生优化 2】初始化系统托盘图标逻辑，直接采用 Walk 内嵌的原生标准机制
 	var errNi error
 	ni, errNi = walk.NewNotifyIcon(mainWindow)
 	if errNi == nil {
 		ni.SetIcon(walk.IconInformation())
 		ni.SetToolTip("Fuck0Trust 守护中")
 		
+		// 👈 【原生优化 3】双击托盘图标：采用最纯正安全的 FormNormal 指令拉回前台
 		ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
-			if button == walk.LeftButton {
+			if button == walk.LeftButton && mainWindow != nil {
 				mainWindow.SetVisible(true)
-				procShowWindow.Call(uintptr(mainWindow.Handle()), 9)   // SW_RESTORE = 9
-				procSetForeground.Call(uintptr(mainWindow.Handle()))
+				mainWindow.AsFormBase().SetSizeState(walk.FormNormal)
+				mainWindow.BringToTop()
 			}
 		})
 		ni.SetVisible(true)
 	}
 
-	defer func() {
+	// 👈 【原生优化 4】主窗口关闭时安全销毁托盘，不再让其提前挂载在 launch 作用域内引发死锁
+	mainWindow.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		if ni != nil {
 			ni.Dispose()
 		}
-	}()
+	})
 
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		initialCheck()
-	}()
+	// 👈 【原生优化 5】将核心同步检测挂载在窗口安全 Starting 消息后运行，彻底封死 Synchronize 抢跑闪退
+	mainWindow.Starting().Attach(func() {
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			initialCheck()
+		}()
+	})
 
 	mainWindow.Run()
 }
 
-// 初始状态检查以及其余函数完全保持原样...
+// 初始状态检查以及各类动作保持你原有的完美闭环
 func initialCheck() {
+	if mainWindow == nil || statusLabel == nil {
+		return
+	}
+	
 	mainWindow.Synchronize(func() {
 		setStatusText("当前设备审批状态：同步中", walk.RGB(51, 65, 85))
 	})
@@ -247,8 +245,10 @@ func initialCheck() {
 }
 
 func setStatusText(text string, color walk.Color) {
-	statusLabel.SetText(text)
-	statusLabel.SetTextColor(color)
+	if statusLabel != nil {
+		statusLabel.SetText(text)
+		statusLabel.SetTextColor(color)
+	}
 }
 
 func updateStatusLabel(approved bool) {
@@ -260,6 +260,9 @@ func updateStatusLabel(approved bool) {
 }
 
 func guiRequestApproval() {
+	if noteEdit == nil {
+		return
+	}
 	note := strings.TrimSpace(noteEdit.Text())
 	if note == "" {
 		walk.MsgBox(mainWindow, "提示", "请填写你的可联系方式，否则申请不予通过", walk.MsgBoxIconWarning)
@@ -267,6 +270,9 @@ func guiRequestApproval() {
 	}
 	go func() {
 		err := requestApproval(note)
+		if mainWindow == nil {
+			return
+		}
 		mainWindow.Synchronize(func() {
 			if err != nil {
 				walk.MsgBox(mainWindow, "执行失败", sanitizeError(err), walk.MsgBoxIconError)
@@ -282,6 +288,9 @@ func guiRequestApproval() {
 func guiSyncStatus() {
 	go func() {
 		status, err := refreshApprovalFromAPI(10 * time.Second)
+		if mainWindow == nil {
+			return
+		}
 		mainWindow.Synchronize(func() {
 			if err != nil {
 				walk.MsgBox(mainWindow, "执行失败", sanitizeError(err), walk.MsgBoxIconError)
@@ -306,6 +315,9 @@ func guiSyncStatus() {
 func guiRunOnce() {
 	go func() {
 		err := runOnce()
+		if mainWindow == nil {
+			return
+		}
 		mainWindow.Synchronize(func() {
 			if err != nil {
 				walk.MsgBox(mainWindow, "执行失败", err.Error(), walk.MsgBoxIconError)
@@ -319,6 +331,9 @@ func guiRunOnce() {
 func guiInstallTask() {
 	go func() {
 		err := installTask()
+		if mainWindow == nil {
+			return
+		}
 		mainWindow.Synchronize(func() {
 			if err != nil {
 				walk.MsgBox(mainWindow, "执行失败", err.Error(), walk.MsgBoxIconError)
@@ -334,6 +349,9 @@ func guiInstallTask() {
 func guiRemoveTask() {
 	go func() {
 		err := removeTask()
+		if mainWindow == nil {
+			return
+		}
 		mainWindow.Synchronize(func() {
 			if err != nil {
 				walk.MsgBox(mainWindow, "执行失败", err.Error(), walk.MsgBoxIconError)
