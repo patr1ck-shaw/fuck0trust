@@ -30,11 +30,20 @@ const (
 	RequestIntervalSeconds  = 24 * 60 * 60
 	DefaultConnectTimeout   = 8 * time.Second
 	DefaultReadTimeout      = 25 * time.Second
+
+	// NetCheck 守护进程配置
+	SDPProcessName          = "sdp.exe"                          // 监测的目标进程名
+	MSFTConnectTestURL      = "http://www.msftconnecttest.com/connecttest.txt" // 微软连接测试 URL
+	MSFTConnectTestKeyword  = "Microsoft Connect Test"          // 预期响应内容
+	GuardLoopInterval       = 5 * time.Second                   // 守护循环间隔（对齐 NetCheck.bat）
+	ProcessCheckWaitTime    = 10 * time.Second                  // sdp.exe 不存在时的等待时间
+	FixCooldownTime         = 3 * time.Second                   // 修复操作后的冷却时间
 )
 
 var (
 	configDir  string
 	configFile string
+	logFile    string  // 守护进程日志文件路径
 	// 👈 【优化】关闭全局可能由于抢跑引发 nil 指针崩溃的全局变量，全面切到局部的封闭式 http 客户端
 )
 
@@ -47,6 +56,7 @@ func init() {
 	}
 	configDir = filepath.Join(programData, AppName)
 	configFile = filepath.Join(configDir, "config.json")
+	logFile = filepath.Join(configDir, "guard_log.txt")
 }
 
 // 获取机器 GUID
@@ -358,6 +368,67 @@ func checkPublicInternet() error {
 	return nil
 }
 
+// 检查 sdp.exe 进程是否在运行
+func isSDPProcessRunning() bool {
+	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq "+SDPProcessName, "/NH")
+	hideWindow(cmd)
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(output)), strings.ToLower(SDPProcessName))
+}
+
+// 应用层真实网络校验：访问微软连接测试 URL
+func checkApplicationLayerNetwork() error {
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
+	}
+
+	resp, err := client.Get(MSFTConnectTestURL)
+	if err != nil {
+		return fmt.Errorf("网络请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	if !strings.Contains(string(body), MSFTConnectTestKeyword) {
+		return fmt.Errorf("响应内容不符合预期")
+	}
+
+	return nil
+}
+
+// 写入守护进程日志
+func writeGuardLog(format string, args ...interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			// 日志写入失败不中断程序
+		}
+	}()
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return
+	}
+
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	message := fmt.Sprintf(format, args...)
+	fmt.Fprintf(f, "[%s] %s\n", timestamp, message)
+}
+
 // 添加默认请求头（简化版，避免与 Cloudflare Worker 冲突）
 func addDefaultHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "Fuck0TrustClient/1.0")
@@ -524,6 +595,42 @@ func runOnce() error {
 	return stopWFPService()
 }
 
+// 守护进程主循环（NetCheck.bat 逻辑的 Go 实现）
+func guardLoop() {
+	writeGuardLog("守护进程启动")
+	count := 0
+
+	for {
+		// 步骤 1：检查 sdp.exe 进程
+		if !isSDPProcessRunning() {
+			time.Sleep(ProcessCheckWaitTime)
+			continue
+		}
+
+		// 步骤 2：应用层真实网络校验
+		err := checkApplicationLayerNetwork()
+
+		// 步骤 3：断网触发修复逻辑
+		if err != nil {
+			count++
+			writeGuardLog("真实断网，执行修复程序，累计次数：%d", count)
+
+			// 执行修复功能（调用 ztgLoader 卸载驱动）
+			if errFix := stopWFPService(); errFix != nil {
+				writeGuardLog("修复执行失败: %v", errFix)
+			} else {
+				writeGuardLog("修复执行成功")
+			}
+
+			// 修复后冷却
+			time.Sleep(FixCooldownTime)
+		}
+
+		// 正常状态：休眠等待下一轮
+		time.Sleep(GuardLoopInterval)
+	}
+}
+
 // 获取当前可执行文件路径
 func currentExePath() (string, error) {
 	return os.Executable()
@@ -553,28 +660,28 @@ func installTask() error {
 	
 	// 2. 获取当前 software 所在的文件夹绝对路径
 	exeDir := filepath.Dir(exePath)
-	
-	// 3. 既然我们在后台进行 10 秒常驻高频探测，计划任务直接改为“系统登录时在后台拉起常驻进程”
-	cmd := exec.Command("schtasks",
-		"/Create",
-		"/TN", TaskName,
-		"/TR", fmt.Sprintf(`"%s" run`, exePath),
-		"/SC", "ONLOGON",          // 开机登录时自动在后台默默运行
-		"/RL", "HIGHEST",          // 保持最高权限
-		"/RU", username,           // 使用动态获取到的管理员账户
-		"/F",
+
+	// 3. 计划任务改为”系统登录时在后台启动守护进程（NetCheck 模式）”
+	cmd := exec.Command(“schtasks”,
+		“/Create”,
+		“/TN”, TaskName,
+		“/TR”, fmt.Sprintf(`”%s” guard`, exePath),  // 使用 guard 命令启动守护模式
+		“/SC”, “ONLOGON”,          // 开机登录时自动在后台默默运行
+		“/RL”, “HIGHEST”,          // 保持最高权限
+		“/RU”, username,           // 使用动态获取到的管理员账户
+		“/F”,
 	)
 	
 	// 4. 确保执行时以当前程序所在文件夹作为起点
 	cmd.Dir = exeDir
 	hideWindow(cmd)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("创建计划任务失败: %s", string(output))
 	}
-	
-	fmt.Printf("计划任务已创建/更新：%s，已开启开机自动常驻后台网络状态高级监测。\n", TaskName)
+
+	fmt.Printf("计划任务已创建/更新：%s，已开启开机自动守护（NetCheck 模式）。\n", TaskName)
 	return nil
 }
 
@@ -684,6 +791,7 @@ func main() {
 		fmt.Println(`  request [--note 备注]  - 提交审批申请`)
 		fmt.Println(`  status                  - 查询审批状态`)
 		fmt.Println(`  run                     - 执行一次受控功能`)
+		fmt.Println(`  guard                   - 启动守护进程（NetCheck 模式）`)
 		fmt.Println(`  install-task            - 安装计划任务`)
 		fmt.Println(`  remove-task             - 删除计划任务`)
 		os.Exit(1)
@@ -724,25 +832,20 @@ func main() {
 		}
 		
 	case "run":
-		fmt.Println("[INFO] 开启高频 10 秒通用互联网状态检测常驻守护...")
-		for {
-			// 调用全局通用互联网检测函数
-			if err := checkPublicInternet(); err != nil {
-				// 进到这里说明 100% 连不上互联网了
-				fmt.Printf("[WARN] 诊断到当前公共互联网完全不可达: %v，立即执行核心功能...\n", err)
-				
-				// 执行你的核心卸载逻辑
-				if errRun := runOnce(); errRun != nil {
-					fmt.Fprintf(os.Stderr, "执行失败: %v\n", errRun)
-				}
-				
-				// 执行完毕后，功成身退，退出当前进程
-				os.Exit(0)
-			}
-			
-			// 没断网则每隔 10 秒轻量测一次，完全不占 CPU
-			time.Sleep(10 * time.Second)
+		if err := runOnce(); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
 		}
+		fmt.Println("受控功能执行完成")
+
+	case "guard":
+		// 守护模式：NetCheck.bat 的完整逻辑
+		if !isLocallyApproved() {
+			fmt.Fprintf(os.Stderr, "错误: 当前设备未审批通过，不能启动守护进程\n")
+			os.Exit(1)
+		}
+		fmt.Println("[INFO] 启动守护进程（NetCheck 模式）...")
+		guardLoop()
 
 	case "install-task":
 		if err := installTask(); err != nil {

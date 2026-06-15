@@ -288,7 +288,7 @@ func guiInstallTask() {
 				walk.MsgBox(mainWindow, "执行失败", err.Error(), walk.MsgBoxIconError)
 				return
 			}
-			walk.MsgBox(mainWindow, "安装完成", fmt.Sprintf("计划任务已创建/更新：%s，已开启开机自动常驻后台网络状态高级监测。", TaskName), walk.MsgBoxIconInformation)
+			walk.MsgBox(mainWindow, "安装完成", fmt.Sprintf("计划任务已创建/更新：%s，已开启开机自动守护（NetCheck 模式）。", TaskName), walk.MsgBoxIconInformation)
 		})
 	}()
 }

@@ -95,11 +95,27 @@ Authorization: Bearer <ADMIN_TOKEN>
 
 - 打开客户端后自动检测 `/health`；
 - 网络不可达时会弹窗提示网络环境存在问题；
-- 点击“提交审批”后会提交当前设备信息；
+- 点击”提交审批”后会提交当前设备信息；
 - 同一设备本地限制 24 小时内只能提交一次审批；
-- 点击“同步审批状态”会从 Worker 获取审批状态；
+- 点击”同步审批状态”会从 Worker 获取审批状态；
 - 审批通过后会在本地永久保存授权；
 - 后续执行受控功能或计划任务时只检查本地授权，不再联网校验。
+
+### 守护模式（NetCheck）
+
+客户端集成了 NetCheck.bat 的完整功能：
+
+1. **进程监测**：持续检查 `sdp.exe` 进程是否运行
+2. **应用层网络校验**：使用 Microsoft Connect Test URL 进行真实网络连通性检测
+3. **自动修复**：检测到断网时自动执行驱动卸载修复
+4. **详细日志**：记录每次检测和修复操作，包含时间戳和累计次数
+5. **5秒循环**：与原 NetCheck.bat 保持一致的检测频率
+
+守护进程日志保存位置：
+
+```text
+%PROGRAMDATA%\Fuck0TrustApprovalClient\guard_log.txt
+```
 
 本地配置保存位置：
 
@@ -131,6 +147,12 @@ Fuck0TrustClient.exe status
 
 ```powershell
 Fuck0TrustClient.exe run
+```
+
+审批通过后启动守护进程（NetCheck 模式）：
+
+```powershell
+Fuck0TrustClient.exe guard
 ```
 
 审批通过后安装计划任务（需要管理员权限）：

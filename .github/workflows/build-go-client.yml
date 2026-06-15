@@ -10,68 +10,76 @@ on:
 
 jobs:
   build:
-    # 修复1：把 latest 改成 2019（解决系统兼容）
-    runs-on: windows-latest
-    
+    runs-on: windows-2019  # 使用 2019 保证兼容性
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
-        
+
     - name: Install dependencies
       working-directory: client-go
       run: |
         go mod download
         go mod tidy
-      
+
     - name: Install rsrc tool
       run: go install github.com/akavel/rsrc@latest
-      
+
     - name: Generate Windows Resource
       working-directory: client-go
-      run: rsrc -manifest fuck0trust.manifest -o rsrc.syso -arch amd64
-      
-    # 修复2：编译命令（核心！去掉 -s -w，开启CGO，保留你所有原有参数）
-    - name: Build Native Windows Executable
+      run: rsrc -manifest fuck0trust.manifest -o rsrc.syso
+      continue-on-error: true
+
+    # 核心修复：正确的编译参数，启用 CGO，使用 walkgui 标签
+    - name: Build Windows Executable
       working-directory: client-go
-      run: |
-        set CGO_ENABLED=1
-        set GOOS=windows
-        set GOARCH=amd64
-        go build -tags walkgui -ldflags="-H=windowsgui" -o fuck0trust.exe .
+      env:
+        CGO_ENABLED: "1"
+        GOOS: windows
+        GOARCH: amd64
+      run: go build -tags walkgui -ldflags="-H=windowsgui" -o Fuck0TrustClient.exe .
       shell: cmd
-      
+
     - name: Verify Executable
       working-directory: client-go
       run: |
-        if (Test-Path "fuck0trust.exe") {
-          Write-Output "Native executable built successfully."
+        if (Test-Path "Fuck0TrustClient.exe") {
+          $size = (Get-Item Fuck0TrustClient.exe).Length / 1MB
+          Write-Output "✓ 可执行文件构建成功"
+          Write-Output "✓ 文件大小: $([math]::Round($size, 2)) MB"
         } else {
-          throw "Executable not found"
+          throw "可执行文件未生成"
         }
-        
-    - name: Get file size
+
+    # 可选：UPX 压缩（需要先安装 UPX）
+    - name: Setup UPX
+      run: |
+        choco install upx -y
+      continue-on-error: true
+
+    - name: Compress with UPX
       working-directory: client-go
       run: |
-        $size = (Get-Item fuck0trust.exe).Length / 1MB
-        Write-Output "File size: $([math]::Round($size, 2)) MB"
-        
+        upx --best --lzma Fuck0TrustClient.exe
+      continue-on-error: true
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fuck0trust-windows
-        path: client-go/fuck0trust.exe
+        name: Fuck0TrustClient-windows
+        path: client-go/Fuck0TrustClient.exe
         retention-days: 90
-        
+
     - name: Create Release (on tag)
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: client-go/fuck0trust.exe
+        files: client-go/Fuck0TrustClient.exe
         draft: false
         prerelease: false
       env:
