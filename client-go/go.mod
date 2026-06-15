@@ -23,4 +23,4 @@ require (
 	gopkg.in/Knetic/govaluate.v3 v3.0.0 // indirect
 )
 
-replace github.com/lxn/walk => github.com/tailscale/walk v0.1.1-0.20240403170109-4e66d5f4cdc9
+replace github.com/lxn/walk => github.com/tailscale/walk v0.0.0-20251016163309-963e26014b93
