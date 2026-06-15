@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019  # 使用 2019 保证兼容性
+    runs-on: windows-latest  # 使用 latest 加快构建速度
 
     steps:
     - name: Checkout code
