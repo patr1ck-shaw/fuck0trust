@@ -6,7 +6,6 @@ require (
 	github.com/getlantern/systray v1.2.2
 	github.com/lxn/walk v0.0.0-20210112085537-c389da54e794
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
-	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/sys v0.5.0
 )
 
@@ -24,4 +23,4 @@ require (
 	gopkg.in/Knetic/govaluate.v3 v3.0.0 // indirect
 )
 
-replace github.com/lxn/walk => github.com/tailscale/walk v0.0.0-20240403170109-4e66d5f4cdc9
+replace github.com/lxn/walk => github.com/tailscale/walk v0.1.1-0.20240403170109-4e66d5f4cdc9
