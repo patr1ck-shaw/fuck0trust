@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -220,29 +219,14 @@ func launchGUI() {
 	win.ShowWindow(mainWindow.Handle(), win.SW_NORMAL)
 	win.SetForegroundWindow(mainWindow.Handle())
 
-	// 加载图标 - 多种方法尝试
+	// 直接从嵌入资源加载图标（rsrc 已将 app.ico 嵌入到 exe）
 	var myIcon *walk.Icon
 
-	// 方法1: 尝试从当前目录加载 app.ico 文件
-	myIcon, _ = walk.NewIconFromFile("app.ico")
-
-	// 方法2: 如果失败，尝试从程序所在目录加载
-	if myIcon == nil {
-		if exePath, err := os.Executable(); err == nil {
-			exeDir := filepath.Dir(exePath)
-			iconPath := filepath.Join(exeDir, "app.ico")
-			myIcon, _ = walk.NewIconFromFile(iconPath)
-		}
-	}
-
-	// 方法3: 尝试从嵌入资源加载 (资源ID通常是1)
-	if myIcon == nil {
-		myIcon, _ = walk.NewIconFromResourceId(1)
-	}
-
-	// 方法4: 最后降级使用系统图标
-	if myIcon == nil {
-		myIcon = walk.IconShield() // 使用盾牌图标，更符合安全主题
+	// rsrc 嵌入的第一个图标资源 ID 通常是 1
+	myIcon, err := walk.NewIconFromResourceId(1)
+	if err != nil || myIcon == nil {
+		// 如果资源加载失败，使用系统盾牌图标作为降级
+		myIcon = walk.IconShield()
 	}
 
 	mainWindow.SetIcon(myIcon)
