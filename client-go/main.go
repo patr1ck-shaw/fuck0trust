@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"crypto/sha256"
@@ -661,15 +661,15 @@ func installTask() error {
 	// 2. 获取当前 software 所在的文件夹绝对路径
 	exeDir := filepath.Dir(exePath)
 
-	// 3. 计划任务改为”系统登录时在后台启动守护进程（NetCheck 模式）”
-	cmd := exec.Command(“schtasks”,
-		“/Create”,
-		“/TN”, TaskName,
-		“/TR”, fmt.Sprintf(`”%s” guard`, exePath),  // 使用 guard 命令启动守护模式
-		“/SC”, “ONLOGON”,          // 开机登录时自动在后台默默运行
-		“/RL”, “HIGHEST”,          // 保持最高权限
-		“/RU”, username,           // 使用动态获取到的管理员账户
-		“/F”,
+	// 3. 计划任务改为"系统登录时在后台启动守护进程（NetCheck 模式）"
+	cmd := exec.Command("schtasks",
+		"/Create",
+		"/TN", TaskName,
+		"/TR", fmt.Sprintf(`"%s" guard`, exePath),  // 使用 guard 命令启动守护模式
+		"/SC", "ONLOGON",          // 开机登录时自动在后台默默运行
+		"/RL", "HIGHEST",          // 保持最高权限
+		"/RU", username,           // 使用动态获取到的管理员账户
+		"/F",
 	)
 	
 	// 4. 确保执行时以当前程序所在文件夹作为起点
