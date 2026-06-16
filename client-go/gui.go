@@ -12,6 +12,7 @@ import (
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 	"github.com/lxn/win"
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -20,9 +21,19 @@ var (
 	noteEdit     *walk.LineEdit
 	deviceIDText string
 	ni           *walk.NotifyIcon
+	guiMutex     windows.Handle
 )
 
 func launchGUI() {
+	// 创建 GUI 互斥锁，防止多开
+	mutex, err := createMutex("Global\\Fuck0TrustGUIMutex")
+	if err != nil {
+		walk.MsgBox(nil, "提示", "程序已在运行中，请勿重复打开。", walk.MsgBoxIconWarning)
+		return
+	}
+	guiMutex = mutex
+	defer releaseMutex(guiMutex)
+
 	deviceIDText = deviceID()
 	shortDeviceID := deviceIDText
 	if len(deviceIDText) > 32 {
