@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -727,31 +728,32 @@ func checkAndHandleApprovalStatus() bool {
 }
 
 // 创建 Windows 命名互斥锁
-func createMutex(name string) (syscall.Handle, error) {
+func createMutex(name string) (windows.Handle, error) {
 	namePtr, err := syscall.UTF16PtrFromString(name)
 	if err != nil {
 		return 0, err
 	}
 
-	handle, err := syscall.CreateMutex(nil, true, namePtr)
+	handle, err := windows.CreateMutex(nil, true, namePtr)
 	if err != nil {
+		// 检查互斥锁是否已存在
+		if err == windows.ERROR_ALREADY_EXISTS {
+			if handle != 0 {
+				windows.CloseHandle(handle)
+			}
+			return 0, fmt.Errorf("守护进程已在运行")
+		}
 		return 0, err
-	}
-
-	// 检查互斥锁是否已存在
-	if err == syscall.ERROR_ALREADY_EXISTS {
-		syscall.CloseHandle(handle)
-		return 0, fmt.Errorf("守护进程已在运行")
 	}
 
 	return handle, nil
 }
 
 // 释放互斥锁
-func releaseMutex(handle syscall.Handle) {
+func releaseMutex(handle windows.Handle) {
 	if handle != 0 {
-		syscall.ReleaseMutex(handle)
-		syscall.CloseHandle(handle)
+		windows.ReleaseMutex(handle)
+		windows.CloseHandle(handle)
 	}
 }
 
