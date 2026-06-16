@@ -173,6 +173,9 @@ func saveConfig(config Config) error {
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
+	// 清理无用的旧版本字段
+	delete(config, "api")
+
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return err
@@ -682,6 +685,16 @@ func installTask() error {
 	}
 
 	fmt.Printf("计划任务已创建/更新：%s，已开启开机自动守护（NetCheck 模式）。\n", TaskName)
+
+	// 立即启动守护进程（后台运行）
+	go func() {
+		writeGuardLog("计划任务安装后立即启动守护进程")
+		guardLoop()
+	}()
+
+	// 等待一小段时间确保守护进程已启动
+	time.Sleep(500 * time.Millisecond)
+
 	return nil
 }
 
