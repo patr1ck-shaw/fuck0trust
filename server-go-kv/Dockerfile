@@ -6,14 +6,12 @@ WORKDIR /build
 # 安装构建依赖
 RUN apk add --no-cache git
 
-# 复制 go.mod
+# 复制依赖文件
 COPY go.mod ./
-
-# 下载依赖（会自动生成 go.sum）
-RUN go mod download
-
-# 复制源代码
 COPY main.go ./
+
+# 下载依赖并生成 go.sum
+RUN go mod tidy && go mod download
 
 # 构建二进制文件（静态链接）
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o fuck0trust-server .
