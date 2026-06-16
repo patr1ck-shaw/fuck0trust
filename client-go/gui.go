@@ -96,7 +96,7 @@ func launchGUI() {
 									PushButton{Text: "执行一次", MinSize: Size{Width: 140, Height: 32}, OnClicked: guiRunOnce},
 									PushButton{Text: "安装计划任务", MinSize: Size{Width: 140, Height: 32}, OnClicked: guiInstallTask},
 									PushButton{Text: "删除计划任务", MinSize: Size{Width: 140, Height: 32}, OnClicked: guiRemoveTask},
-									Composite{Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)}},
+									HSpacer{},
 								},
 							},
 							VSpacer{Size: 8},
