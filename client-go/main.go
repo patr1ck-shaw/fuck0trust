@@ -759,6 +759,21 @@ func sanitizeError(err error) string {
 }
 
 func main() {
+	// 启动诊断日志
+	startupLog := filepath.Join(os.TempDir(), "fuck0trust_startup.log")
+	logStartup := func(msg string) {
+		if f, err := os.OpenFile(startupLog, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+			fmt.Fprintf(f, "[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), msg)
+			f.Close()
+		}
+	}
+
+	logStartup("=== 程序启动 ===")
+	logStartup(fmt.Sprintf("参数数量: %d", len(os.Args)))
+	if len(os.Args) > 0 {
+		logStartup(fmt.Sprintf("参数列表: %v", os.Args))
+	}
+
 	// 捕获 panic 并记录到文件，支持输出完整的高精度红字代码行数堆栈
 	defer func() {
 		if r := recover(); r != nil {
@@ -774,13 +789,16 @@ func main() {
 			// 生产环境不重新抛出 panic，避免闪退
 			fmt.Fprintf(os.Stderr, "程序异常退出: %v\n", r)
 			fmt.Fprintf(os.Stderr, "详细日志已保存到: %s\n", logFile)
+			logStartup(fmt.Sprintf("PANIC: %v", r))
 			os.Exit(1)
 		}
 	}()
-	
+
 	if len(os.Args) == 1 {
 		// 无参数,启动 GUI
+		logStartup("准备启动 GUI 模式")
 		launchGUI()
+		logStartup("GUI 模式已退出")
 		return
 	}
 	
