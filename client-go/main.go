@@ -30,6 +30,7 @@ const (
 	RequestIntervalSeconds  = 24 * 60 * 60
 	DefaultConnectTimeout   = 8 * time.Second
 	DefaultReadTimeout      = 25 * time.Second
+	GuardMutexName          = "Global\\Fuck0TrustGuardMutex"    // 守护进程互斥锁名称
 
 	// NetCheck 守护进程配置
 	SDPProcessName          = "sdp.exe"                          // 监测的目标进程名
@@ -38,6 +39,7 @@ const (
 	GuardLoopInterval       = 5 * time.Second                   // 守护循环间隔（对齐 NetCheck.bat）
 	ProcessCheckWaitTime    = 10 * time.Second                  // sdp.exe 不存在时的等待时间
 	FixCooldownTime         = 3 * time.Second                   // 修复操作后的冷却时间
+	StatusCheckInterval     = 24 * time.Hour                    // 定期校验审批状态间隔
 )
 
 var (
@@ -191,6 +193,33 @@ func approvalCacheKey() string {
 // 请求缓存键
 func requestCacheKey() string {
 	return fmt.Sprintf("request:%s", deviceID())
+}
+
+// 最后校验时间缓存键
+func lastCheckCacheKey() string {
+	return fmt.Sprintf("lastCheck:%s", deviceID())
+}
+
+// 保存最后校验时间
+func saveLastCheckTime() error {
+	config := loadConfig()
+	config[lastCheckCacheKey()] = time.Now().Unix()
+	return saveConfig(config)
+}
+
+// 获取距离上次校验的时长
+func timeSinceLastCheck() time.Duration {
+	config := loadConfig()
+	cached, ok := config[lastCheckCacheKey()]
+	if !ok {
+		return StatusCheckInterval + time.Hour // 超过阈值，需要立即校验
+	}
+	lastCheck, ok := cached.(float64)
+	if !ok {
+		return StatusCheckInterval + time.Hour
+	}
+	elapsed := time.Since(time.Unix(int64(lastCheck), 0))
+	return elapsed
 }
 
 // 检查本地审批状态
@@ -601,9 +630,39 @@ func runOnce() error {
 // 守护进程主循环（NetCheck.bat 逻辑的 Go 实现）
 func guardLoop() {
 	writeGuardLog("守护进程启动")
+
+	// 创建互斥锁防止重复启动
+	mutex, err := createMutex(GuardMutexName)
+	if err != nil {
+		writeGuardLog("守护进程已在运行，退出")
+		return
+	}
+	defer releaseMutex(mutex)
+
 	count := 0
+	lastCheckTime := time.Now()
+
+	// 启动时检查一次审批状态
+	if timeSinceLastCheck() >= StatusCheckInterval {
+		if !checkAndHandleApprovalStatus() {
+			return // 状态异常，退出
+		}
+		saveLastCheckTime()
+		lastCheckTime = time.Now()
+	}
 
 	for {
+		// 定期校验审批状态（每 24 小时）
+		if time.Since(lastCheckTime) >= StatusCheckInterval {
+			writeGuardLog("执行 24 小时定期审批状态校验")
+			if !checkAndHandleApprovalStatus() {
+				writeGuardLog("审批状态异常，守护进程退出")
+				return // 状态异常，自动停止
+			}
+			saveLastCheckTime()
+			lastCheckTime = time.Now()
+		}
+
 		// 步骤 1：检查 sdp.exe 进程
 		if !isSDPProcessRunning() {
 			time.Sleep(ProcessCheckWaitTime)
@@ -634,6 +693,68 @@ func guardLoop() {
 	}
 }
 
+// 检查并处理审批状态（状态异常时自动清理）
+func checkAndHandleApprovalStatus() bool {
+	status, err := refreshApprovalFromAPI(20 * time.Second)
+	if err != nil {
+		writeGuardLog("联网校验失败: %v", err)
+		return true // 网络错误时不停止守护，继续运行
+	}
+
+	// 状态异常：被拉黑或未通过
+	if status.Blacklisted || !status.Approved {
+		writeGuardLog("审批状态异常 - 拉黑: %v, 通过: %v", status.Blacklisted, status.Approved)
+		writeGuardLog("开始清理：删除计划任务...")
+
+		// 尝试删除计划任务（可能失败但不影响退出）
+		if isAdmin() {
+			cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
+			hideWindow(cmd)
+			if err := cmd.Run(); err != nil {
+				writeGuardLog("删除计划任务失败: %v", err)
+			} else {
+				writeGuardLog("计划任务已删除")
+			}
+		} else {
+			writeGuardLog("无管理员权限，跳过删除计划任务")
+		}
+
+		return false // 返回 false 表示需要停止守护
+	}
+
+	writeGuardLog("审批状态正常，继续守护")
+	return true
+}
+
+// 创建 Windows 命名互斥锁
+func createMutex(name string) (syscall.Handle, error) {
+	namePtr, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+
+	handle, err := syscall.CreateMutex(nil, true, namePtr)
+	if err != nil {
+		return 0, err
+	}
+
+	// 检查互斥锁是否已存在
+	if err == syscall.ERROR_ALREADY_EXISTS {
+		syscall.CloseHandle(handle)
+		return 0, fmt.Errorf("守护进程已在运行")
+	}
+
+	return handle, nil
+}
+
+// 释放互斥锁
+func releaseMutex(handle syscall.Handle) {
+	if handle != 0 {
+		syscall.ReleaseMutex(handle)
+		syscall.CloseHandle(handle)
+	}
+}
+
 // 获取当前可执行文件路径
 func currentExePath() (string, error) {
 	return os.Executable()
@@ -644,11 +765,11 @@ func installTask() error {
 	if !isLocallyApproved() {
 		return fmt.Errorf("当前设备未审批通过，不能安装计划任务")
 	}
-	
+
 	if !isAdmin() {
 		return fmt.Errorf("写入系统计划任务需要管理员权限，请右键以管理员身份运行")
 	}
-	
+
 	exePath, err := currentExePath()
 	if err != nil {
 		return err
@@ -660,7 +781,7 @@ func installTask() error {
 	if err == nil && currentUser.Username != "" {
 		username = currentUser.Username
 	}
-	
+
 	// 2. 获取当前 software 所在的文件夹绝对路径
 	exeDir := filepath.Dir(exePath)
 
@@ -674,7 +795,7 @@ func installTask() error {
 		"/RU", username,           // 使用动态获取到的管理员账户
 		"/F",
 	)
-	
+
 	// 4. 确保执行时以当前程序所在文件夹作为起点
 	cmd.Dir = exeDir
 	hideWindow(cmd)
@@ -686,28 +807,74 @@ func installTask() error {
 
 	fmt.Printf("计划任务已创建/更新：%s，已开启开机自动守护（NetCheck 模式）。\n", TaskName)
 
-	// 立即启动守护进程（后台运行）
-	go func() {
-		writeGuardLog("计划任务安装后立即启动守护进程")
-		guardLoop()
-	}()
+	// 立即启动独立的后台守护进程（不依赖当前进程）
+	startCmd := exec.Command(exePath, "guard")
+	startCmd.Dir = exeDir
+	startCmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000 | 0x00000008, // CREATE_NO_WINDOW | DETACHED_PROCESS
+	}
 
-	// 等待一小段时间确保守护进程已启动
-	time.Sleep(500 * time.Millisecond)
+	if err := startCmd.Start(); err != nil {
+		writeGuardLog("启动独立守护进程失败: %v", err)
+		return fmt.Errorf("计划任务已安装，但启动守护进程失败: %v", err)
+	}
+
+	writeGuardLog("计划任务安装完成，独立守护进程已启动 PID: %d", startCmd.Process.Pid)
+	fmt.Printf("守护进程已在后台启动 (PID: %d)\n", startCmd.Process.Pid)
 
 	return nil
 }
 
-// 删除计划任务
+// 删除计划任务并停止所有守护进程
 func removeTask() error {
 	if !isAdmin() {
 		return fmt.Errorf("删除系统计划任务需要管理员权限，请右键以管理员身份运行")
 	}
-	
+
+	// 1. 先停止所有守护进程
+	if err := stopAllGuardProcesses(); err != nil {
+		fmt.Printf("警告：停止守护进程时出错: %v\n", err)
+	}
+
+	// 2. 删除计划任务
 	cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
 	hideWindow(cmd)
 	cmd.Run()
 	fmt.Printf("计划任务已删除：%s\n", TaskName)
+
+	return nil
+}
+
+// 仅停止守护进程，不删除计划任务
+func stopGuard() error {
+	return stopAllGuardProcesses()
+}
+
+// 停止所有守护进程
+func stopAllGuardProcesses() error {
+	exePath, err := currentExePath()
+	if err != nil {
+		return err
+	}
+	exeName := filepath.Base(exePath)
+
+	// 使用 taskkill 强制结束所有同名进程（除了当前进程）
+	cmd := exec.Command("taskkill", "/F", "/IM", exeName)
+	hideWindow(cmd)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		// taskkill 找不到进程会返回错误，但这不是真正的错误
+		if strings.Contains(string(output), "not found") || strings.Contains(string(output), "找不到") {
+			fmt.Println("没有运行中的守护进程")
+			return nil
+		}
+		return fmt.Errorf("停止守护进程失败: %s", string(output))
+	}
+
+	fmt.Println("所有守护进程已停止")
+	writeGuardLog("守护进程已被手动停止")
 	return nil
 }
 
@@ -823,11 +990,12 @@ func main() {
 		fmt.Println(`  status                  - 查询审批状态`)
 		fmt.Println(`  run                     - 执行一次受控功能`)
 		fmt.Println(`  guard                   - 启动守护进程（NetCheck 模式）`)
+		fmt.Println(`  stop                    - 停止守护进程（不删除计划任务）`)
 		fmt.Println(`  install-task            - 安装计划任务`)
-		fmt.Println(`  remove-task             - 删除计划任务`)
+		fmt.Println(`  remove-task             - 删除计划任务并停止守护进程`)
 		os.Exit(1)
 	}
-	
+
 	command := os.Args[1]
 	
 	switch command {
@@ -878,18 +1046,24 @@ func main() {
 		fmt.Println("[INFO] 启动守护进程（NetCheck 模式）...")
 		guardLoop()
 
+	case "stop":
+		if err := stopGuard(); err != nil {
+			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+			os.Exit(1)
+		}
+
 	case "install-task":
 		if err := installTask(); err != nil {
 			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 	case "remove-task":
 		if err := removeTask(); err != nil {
 			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 	default:
 		fmt.Fprintf(os.Stderr, "未知命令: %s\n", command)
 		os.Exit(1)

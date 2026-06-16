@@ -32,8 +32,8 @@ func launchGUI() {
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust 设备审批客户端",
-		MinSize:    Size{Width: 600, Height: 480},
-		MaxSize:    Size{Width: 600, Height: 480},
+		MinSize:    Size{Width: 600, Height: 450},
+		MaxSize:    Size{Width: 600, Height: 450},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 
@@ -41,19 +41,19 @@ func launchGUI() {
 			// 顶部标题栏
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
-				MinSize:    Size{Height: 100},
-				MaxSize:    Size{Height: 100},
-				Layout:     VBox{Margins: Margins{Left: 30, Top: 20, Right: 30, Bottom: 20}},
+				MinSize:    Size{Height: 70},
+				MaxSize:    Size{Height: 70},
+				Layout:     VBox{Margins: Margins{Left: 24, Top: 12, Right: 24, Bottom: 12}},
 				Children: []Widget{
 					Label{
 						Text:       "🛡️ Fuck0Trust",
-						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 20, Bold: true},
+						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 18, Bold: true},
 						TextColor:  walk.RGB(255, 255, 255),
 						Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
 					},
 					Label{
 						Text:       "设备审批与网络守护系统",
-						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 9},
+						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 8},
 						TextColor:  walk.RGB(191, 219, 254),
 						Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
 					},
@@ -62,12 +62,12 @@ func launchGUI() {
 			// 主内容区域
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
-				Layout:     VBox{Margins: Margins{Left: 30, Top: 20, Right: 30, Bottom: 20}, Spacing: 16},
+				Layout:     VBox{Margins: Margins{Left: 24, Top: 16, Right: 24, Bottom: 16}, Spacing: 14},
 				Children: []Widget{
 					// 状态卡片
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-						Layout:     VBox{Margins: Margins{Left: 24, Top: 20, Right: 24, Bottom: 20}, Spacing: 12},
+						Layout:     VBox{Margins: Margins{Left: 20, Top: 16, Right: 20, Bottom: 16}, Spacing: 10},
 						Children: []Widget{
 							Label{
 								AssignTo:   &statusLabel,
@@ -75,12 +75,12 @@ func launchGUI() {
 								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 11, Bold: true},
 								TextColor:  walk.RGB(71, 85, 105),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								MinSize:    Size{Height: 28},
+								MinSize:    Size{Height: 26},
 							},
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(241, 245, 249)},
-								Layout:     VBox{Margins: Margins{Left: 12, Top: 8, Right: 12, Bottom: 8}},
-								MinSize:    Size{Height: 36},
+								Layout:     VBox{Margins: Margins{Left: 10, Top: 6, Right: 10, Bottom: 6}},
+								MinSize:    Size{Height: 32},
 								Children: []Widget{
 									Label{
 										Text:       "设备 ID: " + shortDeviceID,
@@ -95,7 +95,7 @@ func launchGUI() {
 					// 审批申请区域
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-						Layout:     VBox{Margins: Margins{Left: 24, Top: 20, Right: 24, Bottom: 20}, Spacing: 10},
+						Layout:     VBox{Margins: Margins{Left: 20, Top: 16, Right: 20, Bottom: 16}, Spacing: 10},
 						Children: []Widget{
 							Label{
 								Text:       "联系方式（必填）",
@@ -105,52 +105,64 @@ func launchGUI() {
 							},
 							LineEdit{
 								AssignTo: &noteEdit,
-								MinSize:  Size{Height: 32},
+								MinSize:  Size{Height: 30},
 								Font:     Font{Family: "Microsoft YaHei UI", PointSize: 9},
 							},
 							// 操作按钮网格
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								Layout:     Grid{Columns: 2, Spacing: 12},
+								Layout:     Grid{Columns: 2, Spacing: 10},
 								Children: []Widget{
 									PushButton{
 										Text:      "📤 提交审批",
-										MinSize:   Size{Height: 40},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 10},
+										MinSize:   Size{Height: 38},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiRequestApproval,
 									},
 									PushButton{
 										Text:      "🔄 同步状态",
-										MinSize:   Size{Height: 40},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 10},
+										MinSize:   Size{Height: 38},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiSyncStatus,
 									},
 									PushButton{
 										Text:      "▶️ 执行一次",
-										MinSize:   Size{Height: 40},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 10},
+										MinSize:   Size{Height: 38},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiRunOnce,
 									},
 									PushButton{
 										Text:      "⚙️ 安装守护",
-										MinSize:   Size{Height: 40},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 10},
+										MinSize:   Size{Height: 38},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiInstallTask,
 									},
 								},
 							},
-							PushButton{
-								Text:      "🗑️ 删除计划任务",
-								MinSize:   Size{Height: 36},
-								Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
-								OnClicked: guiRemoveTask,
+							Composite{
+								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
+								Layout:     Grid{Columns: 2, Spacing: 10},
+								Children: []Widget{
+									PushButton{
+										Text:      "⏹️ 停止守护",
+										MinSize:   Size{Height: 34},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
+										OnClicked: guiStopGuard,
+									},
+									PushButton{
+										Text:      "🗑️ 删除任务",
+										MinSize:   Size{Height: 34},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
+										OnClicked: guiRemoveTask,
+									},
+								},
 							},
 						},
 					},
 					// 底部提示
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
-						Layout:     VBox{Spacing: 4},
+						Layout:     VBox{Spacing: 3},
 						Children: []Widget{
 							Label{
 								Text:       "💡 首次使用请先提交审批，待管理员通过后再执行功能",
@@ -367,6 +379,22 @@ func guiInstallTask() {
 	}()
 }
 
+func guiStopGuard() {
+	go func() {
+		err := stopGuard()
+		if mainWindow == nil {
+			return
+		}
+		mainWindow.Synchronize(func() {
+			if err != nil {
+				walk.MsgBox(mainWindow, "停止失败", err.Error(), walk.MsgBoxIconError)
+				return
+			}
+			walk.MsgBox(mainWindow, "停止成功", "✅ 守护进程已停止\n计划任务仍保留，重启后会自动运行。", walk.MsgBoxIconInformation)
+		})
+	}()
+}
+
 func guiRemoveTask() {
 	go func() {
 		err := removeTask()
@@ -378,7 +406,7 @@ func guiRemoveTask() {
 				walk.MsgBox(mainWindow, "删除失败", err.Error(), walk.MsgBoxIconError)
 				return
 			}
-			walk.MsgBox(mainWindow, "删除成功", fmt.Sprintf("✅ 计划任务已删除：%s", TaskName), walk.MsgBoxIconInformation)
+			walk.MsgBox(mainWindow, "删除成功", fmt.Sprintf("✅ 计划任务已删除：%s\n守护进程已停止。", TaskName), walk.MsgBoxIconInformation)
 		})
 	}()
 }
