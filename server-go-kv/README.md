@@ -14,15 +14,6 @@
 
 ### Docker 部署（推荐）
 
-**首先创建数据目录并设置权限：**
-
-```bash
-mkdir -p data
-chown -R 1000:1000 data  # 容器内 appuser 的 UID
-```
-
-**运行容器：**
-
 ```bash
 docker pull ghcr.io/patr1ck-shaw/fuck0trust-server:latest
 

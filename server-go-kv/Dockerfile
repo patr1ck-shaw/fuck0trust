@@ -32,6 +32,9 @@ COPY --from=builder --chown=appuser:appuser /build/fuck0trust-server /app/
 
 USER appuser
 
+# 声明数据卷（自动管理权限）
+VOLUME /app/data
+
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
