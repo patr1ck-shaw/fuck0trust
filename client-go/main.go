@@ -990,9 +990,7 @@ func main() {
 		fmt.Println(`命令:`)
 		fmt.Println(`  request [--note 备注]  - 提交审批申请`)
 		fmt.Println(`  status                  - 查询审批状态`)
-		fmt.Println(`  run                     - 执行一次受控功能`)
 		fmt.Println(`  guard                   - 启动守护进程（NetCheck 模式）`)
-		fmt.Println(`  stop                    - 停止守护进程（不删除计划任务）`)
 		fmt.Println(`  install-task            - 安装计划任务`)
 		fmt.Println(`  remove-task             - 删除计划任务并停止守护进程`)
 		os.Exit(1)
@@ -1031,13 +1029,6 @@ func main() {
 		} else {
 			fmt.Println("审批状态：未通过/待审批")
 		}
-		
-	case "run":
-		if err := runOnce(); err != nil {
-			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("受控功能执行完成")
 
 	case "guard":
 		// 守护模式：NetCheck.bat 的完整逻辑
@@ -1047,12 +1038,6 @@ func main() {
 		}
 		fmt.Println("[INFO] 启动守护进程（NetCheck 模式）...")
 		guardLoop()
-
-	case "stop":
-		if err := stopGuard(); err != nil {
-			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
-			os.Exit(1)
-		}
 
 	case "install-task":
 		if err := installTask(); err != nil {
