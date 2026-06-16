@@ -23,12 +23,12 @@ WORKDIR /app
 
 # 安装 ca-certificates（HTTPS 需要）
 RUN apk --no-cache add ca-certificates tzdata && \
-    mkdir -p /app/data && \
     adduser -D -u 1000 appuser && \
+    mkdir -p /app/data && \
     chown -R appuser:appuser /app
 
 # 从构建阶段复制二进制文件
-COPY --from=builder /build/fuck0trust-server /app/
+COPY --from=builder --chown=appuser:appuser /build/fuck0trust-server /app/
 
 USER appuser
 
