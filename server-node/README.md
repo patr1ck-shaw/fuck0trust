@@ -41,7 +41,57 @@ npm start
 
 ## 生产部署
 
-### 方式 1: systemd（推荐）
+### 方式 1: Docker（最简单，推荐）
+
+#### 从 GitHub Container Registry 拉取（推荐）
+
+```bash
+docker run -d \
+  --name fuck0trust \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  -e ADMIN_TOKEN=your-strong-random-token \
+  --restart unless-stopped \
+  ghcr.io/patr1ck-shaw/fuck0trust-server:latest
+```
+
+或使用 docker-compose：
+
+```yaml
+version: '3.8'
+services:
+  fuck0trust:
+    image: ghcr.io/patr1ck-shaw/fuck0trust-server:latest
+    container_name: fuck0trust-server
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ADMIN_TOKEN=your-strong-random-token
+    restart: unless-stopped
+```
+
+#### 本地构建
+
+```bash
+cd server-node
+
+# 使用 docker-compose
+docker-compose up -d
+
+# 或手动构建
+docker build -t fuck0trust-server .
+docker run -d \
+  --name fuck0trust \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -e ADMIN_TOKEN=your-token \
+  --restart unless-stopped \
+  fuck0trust-server
+```
+
+### 方式 2: systemd（Linux 服务器）
 
 创建 `/etc/systemd/system/fuck0trust.service`：
 
@@ -80,7 +130,7 @@ sudo systemctl status fuck0trust
 sudo journalctl -u fuck0trust -f
 ```
 
-### 方式 2: PM2
+### 方式 3: PM2
 
 ```bash
 # 安装 PM2
