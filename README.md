@@ -26,7 +26,7 @@ Fuck0Trust 是一个设备审批管理系统，支持多种后端部署方式：
 
 ```bash
 # 拉取最新镜像
-docker pull ghcr.io/patr1ck-74/fuck0trust-server:latest
+docker pull ghcr.io/patr1ck-shaw/fuck0trust-server:latest
 
 # 运行容器
 docker run -d \
@@ -35,7 +35,7 @@ docker run -d \
   -e ADMIN_TOKEN="your-strong-token" \
   -v $(pwd)/data:/app/data \
   --restart unless-stopped \
-  ghcr.io/patr1ck-74/fuck0trust-server:latest
+  ghcr.io/patr1ck-shaw/fuck0trust-server:latest
 ```
 
 **使用 Docker Compose：**
@@ -45,7 +45,7 @@ docker run -d \
 ```yaml
 services:
   fuck0trust-server:
-    image: ghcr.io/patr1ck-74/fuck0trust-server:latest
+    image: ghcr.io/patr1ck-shaw/fuck0trust-server:latest
     container_name: fuck0trust-server
     ports:
       - "3000:3000"
