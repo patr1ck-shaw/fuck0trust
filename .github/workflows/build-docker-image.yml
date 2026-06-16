@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master ]
     paths:
-      - 'server-node/**'
+      - 'server-go-kv/**'
       - '.github/workflows/build-docker-image.yml'
   workflow_dispatch:
   release:
@@ -55,7 +55,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: ./server-node
+        context: ./server-go-kv
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
@@ -64,4 +64,4 @@ jobs:
         cache-to: type=gha,mode=max
 
     - name: Image digest
-      run: echo "✅ Image pushed to ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+      run: echo "✅ Go + BadgerDB 镜像已推送到 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"

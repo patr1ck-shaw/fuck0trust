@@ -3,7 +3,7 @@
 Fuck0Trust 是一个设备审批管理系统，支持多种后端部署方式：
 
 - **`worker/`**：Cloudflare Workers + KV（全球分布式，免费额度）
-- **`server-node/`**：Node.js + SQLite（自托管，适合国内服务器）
+- **`server-go-kv/`**：Go + BadgerDB（极小镜像 10-20MB，高性能 KV 存储）
 - **`client-go/`**：Go 语言 Windows 客户端（GUI + 守护进程）
 
 ## 后端部署方式
@@ -14,21 +14,17 @@ Fuck0Trust 是一个设备审批管理系统，支持多种后端部署方式：
 
 详见：[worker/README.md](worker/README.md)
 
-### 方式 2: Node.js 服务器（推荐国内用户）
+### 方式 2: Go + BadgerDB 服务器（推荐国内用户）
 
-**优势**：访问速度快、完全可控、无 CF 限制
+**优势**：极小镜像（10-20MB）、高性能嵌入式 KV、零外部依赖、与 Worker 界面一致
 
-详见：[server-node/README.md](server-node/README.md)
+详见：[server-go-kv/README.md](server-go-kv/README.md)
 
-#### 使用 Docker 部署（推荐）
-
-项目提供官方 Docker 镜像，支持 amd64 和 arm64 架构：
+#### Docker 快速部署（推荐）
 
 ```bash
-# 拉取最新镜像
 docker pull ghcr.io/patr1ck-shaw/fuck0trust-server:latest
 
-# 运行容器
 docker run -d \
   --name fuck0trust-server \
   -p 3000:3000 \
@@ -38,9 +34,7 @@ docker run -d \
   ghcr.io/patr1ck-shaw/fuck0trust-server:latest
 ```
 
-**使用 Docker Compose：**
-
-创建 `docker-compose.yml`：
+#### Docker Compose 部署
 
 ```yaml
 services:
@@ -55,40 +49,26 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
 ```
 
-启动服务：
-
+启动：
 ```bash
 docker-compose up -d
 ```
 
-**可用镜像标签：**
+#### 镜像标签
 
-- `latest` - 最新稳定版（main 分支）
+- `latest` - 最新稳定版（推荐）
 - `main` - main 分支最新构建
-- `main-<sha>` - 特定 commit 版本（可追溯）
-- `<version>` - 发布版本号（如 `1.0.0`）
+- `main-<sha>` - 特定 commit（可追溯）
+- `<version>` - 发布版本号
 
-**为什么使用多标签而非仅 latest？**
+#### 技术栈
 
-- `latest`：适合快速部署和测试
-- `main-<sha>`：生产环境推荐，可精确追溯到代码版本
-- `<version>`：发布版本号，语义化版本管理
-
-#### 手动部署
-
-```bash
-cd server-node
-npm install
-export ADMIN_TOKEN="your-strong-token"
-npm start
-```
+- **运行时**：Go 1.22（静态编译）
+- **存储**：BadgerDB（嵌入式 LSM-tree KV）
+- **镜像**：Alpine Linux
+- **大小**：**10-20MB**（比 Node.js 版本小 90%+）
 
 ## 重要说明
 

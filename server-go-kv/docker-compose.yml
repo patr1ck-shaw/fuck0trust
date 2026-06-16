@@ -1,0 +1,17 @@
+services:
+  fuck0trust-server:
+    image: ghcr.io/patr1ck-shaw/fuck0trust-server:latest
+    container_name: fuck0trust-server
+    ports:
+      - "3000:3000"
+    environment:
+      - ADMIN_TOKEN=your-strong-token-change-me
+      - PORT=3000
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
