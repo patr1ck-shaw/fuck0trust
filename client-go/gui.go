@@ -223,7 +223,7 @@ func launchGUI() {
 	var myIcon *walk.Icon
 
 	// rsrc 嵌入的第一个图标资源 ID 通常是 1
-	myIcon, err := walk.NewIconFromResourceId(1)
+	myIcon, err = walk.NewIconFromResourceId(1)
 	if err != nil || myIcon == nil {
 		// 如果资源加载失败，使用系统盾牌图标作为降级
 		myIcon = walk.IconShield()
