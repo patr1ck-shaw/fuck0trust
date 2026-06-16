@@ -43,54 +43,54 @@ func launchGUI() {
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
-		Size:       Size{Width: 280, Height: 300},
-		MinSize:    Size{Width: 280, Height: 300},
-		MaxSize:    Size{Width: 280, Height: 300},
+		Size:       Size{Width: 320, Height: 380},
+		MinSize:    Size{Width: 320, Height: 380},
+		MaxSize:    Size{Width: 320, Height: 380},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 
 		Children: []Widget{
-			// 顶部标题栏
+			// 顶部标题栏 - 渐变蓝色背景
 			Composite{
-				Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
-				MinSize:    Size{Height: 32},
-				MaxSize:    Size{Height: 32},
-				Layout:     VBox{Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}},
+				Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)}, // 更鲜艳的蓝色
+				MinSize:    Size{Height: 50},
+				MaxSize:    Size{Height: 50},
+				Layout:     VBox{Margins: Margins{Left: 12, Top: 10, Right: 12, Bottom: 10}},
 				Children: []Widget{
 					Label{
 						Text:       "🛡️ Fuck0Trust",
-						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 10, Bold: true},
+						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 14, Bold: true},
 						TextColor:  walk.RGB(255, 255, 255),
-						Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
+						Background: SolidColorBrush{Color: walk.RGB(37, 99, 235)},
 					},
 				},
 			},
 			// 主内容区域
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
-				Layout:     VBox{Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}, Spacing: 4},
+				Layout:     VBox{Margins: Margins{Left: 12, Top: 10, Right: 12, Bottom: 10}, Spacing: 8},
 				Children: []Widget{
 					// 状态卡片
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-						Layout:     VBox{Margins: Margins{Left: 6, Top: 4, Right: 6, Bottom: 4}, Spacing: 3},
+						Layout:     VBox{Margins: Margins{Left: 10, Top: 8, Right: 10, Bottom: 8}, Spacing: 6},
 						Children: []Widget{
 							Label{
 								AssignTo:   &statusLabel,
 								Text:       "审批：检测中...",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7, Bold: true},
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 9, Bold: true},
 								TextColor:  walk.RGB(71, 85, 105),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								MinSize:    Size{Height: 16},
+								MinSize:    Size{Height: 20},
 							},
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(241, 245, 249)},
-								Layout:     VBox{Margins: Margins{Left: 4, Top: 2, Right: 4, Bottom: 2}},
-								MinSize:    Size{Height: 16},
+								Layout:     VBox{Margins: Margins{Left: 6, Top: 4, Right: 6, Bottom: 4}},
+								MinSize:    Size{Height: 22},
 								Children: []Widget{
 									Label{
 										Text:       "ID: " + shortDeviceID,
-										Font:       Font{Family: "Consolas", PointSize: 6},
+										Font:       Font{Family: "Consolas", PointSize: 7},
 										TextColor:  walk.RGB(100, 116, 139),
 										Background: SolidColorBrush{Color: walk.RGB(241, 245, 249)},
 									},
@@ -101,67 +101,67 @@ func launchGUI() {
 					// 审批申请区域
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-						Layout:     VBox{Margins: Margins{Left: 6, Top: 4, Right: 6, Bottom: 4}, Spacing: 3},
+						Layout:     VBox{Margins: Margins{Left: 10, Top: 8, Right: 10, Bottom: 8}, Spacing: 6},
 						Children: []Widget{
 							Label{
 								Text:       "联系方式或理由",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7, Bold: true},
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 8, Bold: true},
 								TextColor:  walk.RGB(51, 65, 85),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 							},
 							LineEdit{
 								AssignTo: &noteEdit,
-								MinSize:  Size{Height: 20},
-								Font:     Font{Family: "Microsoft YaHei UI", PointSize: 7},
+								MinSize:  Size{Height: 24},
+								Font:     Font{Family: "Microsoft YaHei UI", PointSize: 9},
 							},
 							// 操作按钮网格
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								Layout:     Grid{Columns: 2, Spacing: 4},
+								Layout:     Grid{Columns: 2, Spacing: 6},
 								Children: []Widget{
 									PushButton{
-										Text:      "📤 提交",
-										MinSize:   Size{Height: 24},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
+										Text:      "📤 提交审批",
+										MinSize:   Size{Height: 32},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiRequestApproval,
 									},
 									PushButton{
-										Text:      "🔄 同步",
-										MinSize:   Size{Height: 24},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
+										Text:      "🔄 同步状态",
+										MinSize:   Size{Height: 32},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiSyncStatus,
 									},
 									PushButton{
-										Text:      "⚙️ 安装",
-										MinSize:   Size{Height: 24},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
+										Text:      "⚙️ 安装守护",
+										MinSize:   Size{Height: 32},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiInstallTask,
 									},
 									PushButton{
-										Text:      "🗑️ 删除",
-										MinSize:   Size{Height: 24},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
+										Text:      "🗑️ 删除退出",
+										MinSize:   Size{Height: 32},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
 										OnClicked: guiRemoveTask,
 									},
 								},
 							},
 						},
 					},
-					// 底部提示
+					// 底部提示 - 红色醒目
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
-						Layout:     VBox{Spacing: 1},
+						Layout:     VBox{Spacing: 3},
 						Children: []Widget{
 							Label{
-								Text:       "💡 先提交审批，通过后再操作",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 6},
-								TextColor:  walk.RGB(100, 116, 139),
+								Text:       "💡 首次使用请先提交审批，待管理员通过后再操作",
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7},
+								TextColor:  walk.RGB(220, 38, 38), // 红色
 								Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 							},
 							Label{
-								Text:       "⏰ 24 小时内仅可提交一次",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 6},
-								TextColor:  walk.RGB(100, 116, 139),
+								Text:       "⏰ 24 小时内仅可提交一次审批申请",
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7},
+								TextColor:  walk.RGB(220, 38, 38), // 红色
 								Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 							},
 						},
@@ -185,11 +185,17 @@ func launchGUI() {
 	win.ShowWindow(mainWindow.Handle(), win.SW_NORMAL)
 	win.SetForegroundWindow(mainWindow.Handle())
 
-	// 👈 【绝对防弹的加载图标】如果旁边没有合法的 app.ico，强制使用系统自带的【蓝色信息图标】，保证托盘绝对不会因为空值而消失！
+	// 从嵌入资源加载图标
 	var myIcon *walk.Icon
-	myIcon, _ = walk.NewIconFromFile("app.ico")
-	if myIcon == nil {
-		myIcon = walk.IconInformation()
+	// 尝试从资源 ID 1 加载图标（rsrc 默认将第一个图标资源设为 ID 1）
+	myIcon, err = walk.NewIconFromResourceId(1)
+	if err != nil || myIcon == nil {
+		// 如果资源加载失败，尝试从文件加载
+		myIcon, _ = walk.NewIconFromFile("app.ico")
+		if myIcon == nil {
+			// 最后降级使用系统图标
+			myIcon = walk.IconInformation()
+		}
 	}
 	mainWindow.SetIcon(myIcon)
 
