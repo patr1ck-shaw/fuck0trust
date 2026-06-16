@@ -30,9 +30,9 @@ jobs:
     - name: Install rsrc tool
       run: go install github.com/akavel/rsrc@latest
 
-    - name: Generate Windows Resource
+    - name: Generate Windows Resource (with icon)
       working-directory: client-go
-      run: rsrc -manifest fuck0trust.manifest -o rsrc.syso
+      run: rsrc -manifest fuck0trust.manifest -ico app.ico -o rsrc.syso
       continue-on-error: true
 
     # 核心修复：正确的编译参数，启用 CGO，使用 walkgui 标签
