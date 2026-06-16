@@ -1,0 +1,6 @@
+# Docker ignore patterns
+node_modules
+npm-debug.log
+.env
+*.db
+data/*.db
