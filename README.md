@@ -20,7 +20,68 @@ Fuck0Trust 是一个设备审批管理系统，支持多种后端部署方式：
 
 详见：[server-node/README.md](server-node/README.md)
 
-快速部署：
+#### 使用 Docker 部署（推荐）
+
+项目提供官方 Docker 镜像，支持 amd64 和 arm64 架构：
+
+```bash
+# 拉取最新镜像
+docker pull ghcr.io/patr1ck-74/fuck0trust-server:latest
+
+# 运行容器
+docker run -d \
+  --name fuck0trust-server \
+  -p 3000:3000 \
+  -e ADMIN_TOKEN="your-strong-token" \
+  -v $(pwd)/data:/app/data \
+  --restart unless-stopped \
+  ghcr.io/patr1ck-74/fuck0trust-server:latest
+```
+
+**使用 Docker Compose：**
+
+创建 `docker-compose.yml`：
+
+```yaml
+services:
+  fuck0trust-server:
+    image: ghcr.io/patr1ck-74/fuck0trust-server:latest
+    container_name: fuck0trust-server
+    ports:
+      - "3000:3000"
+    environment:
+      - ADMIN_TOKEN=your-strong-token
+      - PORT=3000
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+```
+
+启动服务：
+
+```bash
+docker-compose up -d
+```
+
+**可用镜像标签：**
+
+- `latest` - 最新稳定版（main 分支）
+- `main` - main 分支最新构建
+- `main-<sha>` - 特定 commit 版本（可追溯）
+- `<version>` - 发布版本号（如 `1.0.0`）
+
+**为什么使用多标签而非仅 latest？**
+
+- `latest`：适合快速部署和测试
+- `main-<sha>`：生产环境推荐，可精确追溯到代码版本
+- `<version>`：发布版本号，语义化版本管理
+
+#### 手动部署
 
 ```bash
 cd server-node
