@@ -6,10 +6,10 @@ WORKDIR /build
 # 安装构建依赖
 RUN apk add --no-cache git
 
-# 复制 go.mod 和 go.sum
-COPY go.mod go.sum* ./
+# 复制 go.mod
+COPY go.mod ./
 
-# 下载依赖
+# 下载依赖（会自动生成 go.sum）
 RUN go mod download
 
 # 复制源代码
