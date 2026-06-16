@@ -507,7 +507,7 @@ func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
 func requestApproval(note string) error {
 	note = strings.TrimSpace(note)
 	if note == "" {
-		return fmt.Errorf("请填写你的申请理由或可联系方式，否则申请不予通过")
+		return fmt.Errorf("请填写你的可联系方式或申请理由，否则不予通过")
 	}
 	remaining := secondsUntilNextRequest()
 	if remaining > 0 {

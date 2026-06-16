@@ -98,7 +98,7 @@ func launchGUI() {
 						Layout:     VBox{Margins: Margins{Left: 20, Top: 16, Right: 20, Bottom: 16}, Spacing: 10},
 						Children: []Widget{
 							Label{
-								Text:       "联系方式（必填）",
+								Text:       "联系方式或申请理由（必填）",
 								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 9, Bold: true},
 								TextColor:  walk.RGB(51, 65, 85),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
@@ -303,7 +303,7 @@ func guiRequestApproval() {
 	}
 	note := strings.TrimSpace(noteEdit.Text())
 	if note == "" {
-		walk.MsgBox(mainWindow, "提示", "请填写你的可联系方式，否则申请不予通过", walk.MsgBoxIconWarning)
+		walk.MsgBox(mainWindow, "提示", "请填写你的可联系方式或申请理由，否则不予通过", walk.MsgBoxIconWarning)
 		return
 	}
 	go func() {
