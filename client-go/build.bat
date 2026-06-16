@@ -31,14 +31,20 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [4/6] 生成资源文件（嵌入 manifest）...
+echo [4/6] 生成资源文件（嵌入 manifest 和图标）...
 REM 如果有 rsrc 工具，使用它生成 .syso 文件
 where rsrc >nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    rsrc -manifest fuck0trust.manifest -o rsrc.syso
+    rsrc -manifest fuck0trust.manifest -ico app.ico -o rsrc.syso
+    if %ERRORLEVEL% equ 0 (
+        echo [OK] 资源文件生成成功（包含图标）
+    ) else (
+        echo [WARN] 资源文件生成失败，尝试仅嵌入 manifest
+        rsrc -manifest fuck0trust.manifest -o rsrc.syso
+    )
 ) else (
-    echo [WARN] rsrc 工具未安装，跳过 manifest 嵌入
-    echo [INFO] 可选安装：go install github.com/akavel/rsrc@latest
+    echo [WARN] rsrc 工具未安装，跳过 manifest 和图标嵌入
+    echo [INFO] 安装方法：go install github.com/akavel/rsrc@latest
 )
 
 echo [5/6] 编译程序（使用 walkgui 标签）...

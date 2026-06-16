@@ -43,8 +43,8 @@ func launchGUI() {
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
-		MinSize:    Size{Width: 460, Height: 420},
-		MaxSize:    Size{Width: 460, Height: 420},
+		MinSize:    Size{Width: 280, Height: 300},
+		MaxSize:    Size{Width: 280, Height: 300},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 
@@ -52,13 +52,13 @@ func launchGUI() {
 			// 顶部标题栏
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
-				MinSize:    Size{Height: 55},
-				MaxSize:    Size{Height: 55},
-				Layout:     VBox{Margins: Margins{Left: 16, Top: 12, Right: 16, Bottom: 12}},
+				MinSize:    Size{Height: 32},
+				MaxSize:    Size{Height: 32},
+				Layout:     VBox{Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}},
 				Children: []Widget{
 					Label{
 						Text:       "🛡️ Fuck0Trust",
-						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 16, Bold: true},
+						Font:       Font{Family: "Microsoft YaHei UI", PointSize: 10, Bold: true},
 						TextColor:  walk.RGB(255, 255, 255),
 						Background: SolidColorBrush{Color: walk.RGB(30, 58, 138)},
 					},
@@ -67,29 +67,29 @@ func launchGUI() {
 			// 主内容区域
 			Composite{
 				Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
-				Layout:     VBox{Margins: Margins{Left: 16, Top: 12, Right: 16, Bottom: 12}, Spacing: 10},
+				Layout:     VBox{Margins: Margins{Left: 8, Top: 6, Right: 8, Bottom: 6}, Spacing: 4},
 				Children: []Widget{
 					// 状态卡片
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-						Layout:     VBox{Margins: Margins{Left: 12, Top: 10, Right: 12, Bottom: 10}, Spacing: 8},
+						Layout:     VBox{Margins: Margins{Left: 6, Top: 4, Right: 6, Bottom: 4}, Spacing: 3},
 						Children: []Widget{
 							Label{
 								AssignTo:   &statusLabel,
-								Text:       "设备审批状态：检测中...",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 9, Bold: true},
+								Text:       "审批：检测中...",
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7, Bold: true},
 								TextColor:  walk.RGB(71, 85, 105),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								MinSize:    Size{Height: 20},
+								MinSize:    Size{Height: 16},
 							},
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(241, 245, 249)},
-								Layout:     VBox{Margins: Margins{Left: 8, Top: 5, Right: 8, Bottom: 5}},
-								MinSize:    Size{Height: 24},
+								Layout:     VBox{Margins: Margins{Left: 4, Top: 2, Right: 4, Bottom: 2}},
+								MinSize:    Size{Height: 16},
 								Children: []Widget{
 									Label{
-										Text:       "设备 ID: " + shortDeviceID,
-										Font:       Font{Family: "Consolas", PointSize: 8},
+										Text:       "ID: " + shortDeviceID,
+										Font:       Font{Family: "Consolas", PointSize: 6},
 										TextColor:  walk.RGB(100, 116, 139),
 										Background: SolidColorBrush{Color: walk.RGB(241, 245, 249)},
 									},
@@ -100,46 +100,46 @@ func launchGUI() {
 					// 审批申请区域
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-						Layout:     VBox{Margins: Margins{Left: 12, Top: 10, Right: 12, Bottom: 10}, Spacing: 8},
+						Layout:     VBox{Margins: Margins{Left: 6, Top: 4, Right: 6, Bottom: 4}, Spacing: 3},
 						Children: []Widget{
 							Label{
-								Text:       "联系方式或申请理由（必填）",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 8, Bold: true},
+								Text:       "联系方式或理由",
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7, Bold: true},
 								TextColor:  walk.RGB(51, 65, 85),
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
 							},
 							LineEdit{
 								AssignTo: &noteEdit,
-								MinSize:  Size{Height: 26},
-								Font:     Font{Family: "Microsoft YaHei UI", PointSize: 9},
+								MinSize:  Size{Height: 20},
+								Font:     Font{Family: "Microsoft YaHei UI", PointSize: 7},
 							},
 							// 操作按钮网格
 							Composite{
 								Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-								Layout:     Grid{Columns: 2, Spacing: 8},
+								Layout:     Grid{Columns: 2, Spacing: 4},
 								Children: []Widget{
 									PushButton{
-										Text:      "📤 提交审批",
-										MinSize:   Size{Height: 34},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
+										Text:      "📤 提交",
+										MinSize:   Size{Height: 24},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
 										OnClicked: guiRequestApproval,
 									},
 									PushButton{
-										Text:      "🔄 同步状态",
-										MinSize:   Size{Height: 34},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
+										Text:      "🔄 同步",
+										MinSize:   Size{Height: 24},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
 										OnClicked: guiSyncStatus,
 									},
 									PushButton{
-										Text:      "⚙️ 安装守护",
-										MinSize:   Size{Height: 34},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
+										Text:      "⚙️ 安装",
+										MinSize:   Size{Height: 24},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
 										OnClicked: guiInstallTask,
 									},
 									PushButton{
-										Text:      "🗑️ 删除守护",
-										MinSize:   Size{Height: 34},
-										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 9},
+										Text:      "🗑️ 删除",
+										MinSize:   Size{Height: 24},
+										Font:      Font{Family: "Microsoft YaHei UI", PointSize: 7},
 										OnClicked: guiRemoveTask,
 									},
 								},
@@ -149,17 +149,17 @@ func launchGUI() {
 					// 底部提示
 					Composite{
 						Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
-						Layout:     VBox{Spacing: 3},
+						Layout:     VBox{Spacing: 1},
 						Children: []Widget{
 							Label{
-								Text:       "💡 首次使用请先提交审批，待管理员通过后再执行功能",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7},
+								Text:       "💡 先提交审批，通过后再操作",
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 6},
 								TextColor:  walk.RGB(100, 116, 139),
 								Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 							},
 							Label{
-								Text:       "⏰ 同一设备 24 小时内只允许提交一次审批申请",
-								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 7},
+								Text:       "⏰ 24 小时内仅可提交一次",
+								Font:       Font{Family: "Microsoft YaHei UI", PointSize: 6},
 								TextColor:  walk.RGB(100, 116, 139),
 								Background: SolidColorBrush{Color: walk.RGB(248, 250, 252)},
 							},
@@ -252,17 +252,17 @@ func initialCheck() {
 	if mainWindow == nil || statusLabel == nil {
 		return
 	}
-	mainWindow.Synchronize(func() { setStatusText("设备审批状态：同步中...", walk.RGB(71, 85, 105)) })
+	mainWindow.Synchronize(func() { setStatusText("审批：同步中...", walk.RGB(71, 85, 105)) })
 	if err := checkAPIReachable(8 * time.Second); err != nil {
 		mainWindow.Synchronize(func() {
-			setStatusText("设备审批状态：网络异常", walk.RGB(185, 28, 28))
+			setStatusText("审批：网络异常", walk.RGB(185, 28, 28))
 			walk.MsgBox(mainWindow, "网络环境存在问题", "当前网络无法访问审批服务，请更换网络或检查代理后重新打开客户端。", walk.MsgBoxIconWarning)
 		})
 		return
 	}
 	status, err := refreshApprovalFromAPI(10 * time.Second)
 	if err != nil {
-		mainWindow.Synchronize(func() { setStatusText("设备审批状态：同步失败", walk.RGB(185, 28, 28)) })
+		mainWindow.Synchronize(func() { setStatusText("审批：同步失败", walk.RGB(185, 28, 28)) })
 		return
 	}
 	if status.Blacklisted {
@@ -284,9 +284,9 @@ func setStatusText(text string, color walk.Color) {
 
 func updateStatusLabel(approved bool) {
 	if approved {
-		setStatusText("设备审批状态：✅ 已通过", walk.RGB(21, 128, 61))
+		setStatusText("审批：✅ 已通过", walk.RGB(21, 128, 61))
 	} else {
-		setStatusText("设备审批状态：⏳ 未通过/待审批", walk.RGB(185, 28, 28))
+		setStatusText("审批：⏳ 待审批", walk.RGB(185, 28, 28))
 	}
 }
 
@@ -332,9 +332,9 @@ func guiSyncStatus() {
 			}
 			updateStatusLabel(status.Approved)
 			if status.Approved {
-				walk.MsgBox(mainWindow, "同步成功", "✅ 当前设备审批状态：已通过", walk.MsgBoxIconInformation)
+				walk.MsgBox(mainWindow, "同步成功", "✅ 审批已通过", walk.MsgBoxIconInformation)
 			} else {
-				walk.MsgBox(mainWindow, "同步成功", "⏳ 当前设备审批状态：未通过/待审批", walk.MsgBoxIconInformation)
+				walk.MsgBox(mainWindow, "同步成功", "⏳ 待审批", walk.MsgBoxIconInformation)
 			}
 		})
 	}()
@@ -351,7 +351,7 @@ func guiInstallTask() {
 				walk.MsgBox(mainWindow, "安装失败", err.Error(), walk.MsgBoxIconError)
 				return
 			}
-			walk.MsgBox(mainWindow, "安装成功", fmt.Sprintf("✅ 计划任务已安装：%s\n守护进程已在后台启动，开机自动运行。", TaskName), walk.MsgBoxIconInformation)
+			walk.MsgBox(mainWindow, "安装成功", fmt.Sprintf("✅ 任务：%s\n守护已启动", TaskName), walk.MsgBoxIconInformation)
 		})
 	}()
 }
@@ -367,7 +367,7 @@ func guiRemoveTask() {
 				walk.MsgBox(mainWindow, "删除失败", err.Error(), walk.MsgBoxIconError)
 				return
 			}
-			walk.MsgBox(mainWindow, "删除成功", fmt.Sprintf("✅ 计划任务已删除：%s\n守护进程已停止。", TaskName), walk.MsgBoxIconInformation)
+			walk.MsgBox(mainWindow, "删除成功", fmt.Sprintf("✅ 任务已删除：%s", TaskName), walk.MsgBoxIconInformation)
 		})
 	}()
 }
