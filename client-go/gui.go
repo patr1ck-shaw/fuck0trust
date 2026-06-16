@@ -162,6 +162,12 @@ func launchGUI() {
 		return
 	}
 
+	// 禁用最大化按钮和调整大小
+	hwnd := mainWindow.Handle()
+	style := win.GetWindowLong(hwnd, win.GWL_STYLE)
+	style &^= win.WS_MAXIMIZEBOX | win.WS_SIZEBOX
+	win.SetWindowLong(hwnd, win.GWL_STYLE, style)
+
 	// 👈 【防隐身绝杀】手动强制显示窗口！打破双击没反应的隐身错觉！
 	mainWindow.SetVisible(true)
 	win.ShowWindow(mainWindow.Handle(), win.SW_NORMAL)

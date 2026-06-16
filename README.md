@@ -3,13 +3,13 @@
 Fuck0Trust 是一个基于 **Cloudflare Workers + KV** 的设备审批项目，包含：
 
 - `worker/dashboard-worker.js`：可直接粘贴到 Cloudflare Dashboard 的 Worker 单文件代码；
-- `client-go/`：Go 语言 Windows 客户端，支持提交审批、同步审批状态、本地保存授权、安装/删除计划任务。
+- `client-go/`：Go 语言 Windows 客户端，支持提交审批、同步审批状态、自动守护和计划任务管理。
 
 ## 重要说明
 
-本项目保留“设备 ID + 审批 + KV 持久化 + Windows 客户端 + 计划任务”架构。
+本项目保留"设备 ID + 审批 + KV 持久化 + Windows 客户端 + 计划任务"架构。
 
-客户端当前的受控功能仅用于查询/演示受控流程，不实现自动停止、禁用或绕过安全/零信任组件的能力。
+客户端集成了网络守护功能，可自动监测并修复网络连接问题。
 
 ## Worker 部署方式：Cloudflare Dashboard 直接粘贴
 
@@ -91,78 +91,79 @@ https://你的域名/admin
 Authorization: Bearer <ADMIN_TOKEN>
 ```
 
-### 客户端行为
+## 客户端功能
 
-- 打开客户端后自动检测 `/health`；
-- 网络不可达时会弹窗提示网络环境存在问题；
-- 点击”提交审批”后会提交当前设备信息；
-- 同一设备本地限制 24 小时内只能提交一次审批；
-- 点击”同步审批状态”会从 Worker 获取审批状态；
-- 审批通过后会在本地永久保存授权；
-- 后续执行受控功能或计划任务时只检查本地授权，不再联网校验。
+### 核心功能
 
-### 守护模式（NetCheck）
+1. **📤 提交审批**：提交设备审批申请（24 小时限制一次）
+2. **🔄 同步状态**：从服务器同步审批状态
+3. **⚙️ 安装守护**：安装计划任务并启动守护进程
+4. **🗑️ 删除守护**：删除计划任务并停止守护进程
 
-客户端集成了 NetCheck.bat 的完整功能：
+### 守护模式特性
+
+客户端集成了完整的网络守护功能：
 
 1. **进程监测**：持续检查 `sdp.exe` 进程是否运行
 2. **应用层网络校验**：使用 Microsoft Connect Test URL 进行真实网络连通性检测
 3. **自动修复**：检测到断网时自动执行驱动卸载修复
-4. **详细日志**：记录每次检测和修复操作，包含时间戳和累计次数
-5. **5秒循环**：与原 NetCheck.bat 保持一致的检测频率
+4. **24 小时定期校验**：每 24 小时联网校验审批状态，状态异常自动停止并清理
+5. **防重复启动**：使用互斥锁防止多个守护进程同时运行
+6. **详细日志**：记录每次检测和修复操作，包含时间戳和累计次数
+7. **5 秒循环**：每 5 秒检测一次网络状态
 
-守护进程日志保存位置：
+### 安全机制
 
+- 审批通过后本地永久保存授权
+- 守护进程每 24 小时自动校验审批状态
+- 状态异常（被拉黑/拒绝）时自动：
+  - 停止守护循环
+  - 删除计划任务
+  - 退出进程
+
+### 文件位置
+
+守护进程日志：
 ```text
-%PROGRAMDATA%\Fuck0TrustApprovalClient\guard_log.txt
+C:\ProgramData\Fuck0TrustApprovalClient\guard_log.txt
 ```
 
-本地配置保存位置：
-
+本地配置：
 ```text
-%PROGRAMDATA%\Fuck0TrustApprovalClient\config.json
+C:\ProgramData\Fuck0TrustApprovalClient\config.json
 ```
 
 ## 客户端命令行
 
-图形界面：
+### 图形界面
 
 ```powershell
 Fuck0TrustClient.exe
 ```
 
-提交审批：
+### 命令行操作
 
+提交审批：
 ```powershell
-Fuck0TrustClient.exe request --note "申请说明"
+Fuck0TrustClient.exe request --note "你的联系方式或申请理由"
 ```
 
 同步/查询审批状态：
-
 ```powershell
 Fuck0TrustClient.exe status
 ```
 
-审批通过后执行一次受控功能：
-
-```powershell
-Fuck0TrustClient.exe run
-```
-
-审批通过后启动守护进程（NetCheck 模式）：
-
+启动守护进程（后台模式）：
 ```powershell
 Fuck0TrustClient.exe guard
 ```
 
-审批通过后安装计划任务（需要管理员权限）：
-
+安装计划任务（需要管理员权限）：
 ```powershell
 Fuck0TrustClient.exe install-task
 ```
 
-删除计划任务（需要管理员权限）：
-
+删除计划任务并停止守护（需要管理员权限）：
 ```powershell
 Fuck0TrustClient.exe remove-task
 ```
@@ -192,8 +193,28 @@ cd client-go
 
 ## 客户端特性
 
-- ✅ **体积小**: 3-6 MB（使用 Go 原生编译 + UPX 压缩）
-- ✅ **启动快**: 毫秒级启动，无需运行时
-- ✅ **无依赖**: 单一可执行文件
-- ✅ **类型安全**: 编译时检查，运行稳定
-- ✅ **原生 GUI**: Windows 原生控件，体验流畅
+- ✅ **体积小**：3-6 MB（使用 Go 原生编译 + UPX 压缩）
+- ✅ **启动快**：毫秒级启动，无需运行时
+- ✅ **无依赖**：单一可执行文件
+- ✅ **类型安全**：编译时检查，运行稳定
+- ✅ **原生 GUI**：Windows 原生控件，固定大小 734×725
+- ✅ **自动守护**：后台持续监控，开机自启
+- ✅ **智能校验**：24 小时定期验证，状态异常自动清理
+- ✅ **安全可靠**：互斥锁保护，防止重复启动
+
+## 使用流程
+
+1. **首次使用**：打开客户端 → 提交审批 → 等待管理员通过
+2. **安装守护**：同步状态确认通过 → 点击"安装守护"（需管理员权限）
+3. **自动运行**：守护进程立即启动，可关闭 GUI
+4. **开机自启**：重启后自动运行守护进程
+5. **状态监控**：每 24 小时自动校验审批状态
+6. **清理卸载**：点击"删除守护"完全移除
+
+## 技术架构
+
+- **前端**：Go + Walk (Windows 原生 GUI)
+- **后端**：Cloudflare Workers
+- **存储**：Cloudflare KV
+- **守护**：Windows 计划任务 + 独立进程
+- **通信**：HTTPS REST API
