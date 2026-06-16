@@ -1,0 +1,26 @@
+[Unit]
+Description=Fuck0Trust Approval Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/fuck0trust/server-node
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+Environment="ADMIN_TOKEN=change-this-to-strong-random-token"
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# 安全限制
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/fuck0trust/server-node/data
+
+[Install]
+WantedBy=multi-user.target

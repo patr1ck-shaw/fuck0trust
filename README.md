@@ -1,17 +1,41 @@
 # Fuck0Trust
 
-Fuck0Trust 是一个基于 **Cloudflare Workers + KV** 的设备审批项目，包含：
+Fuck0Trust 是一个设备审批管理系统，支持多种后端部署方式：
 
-- `worker/dashboard-worker.js`：可直接粘贴到 Cloudflare Dashboard 的 Worker 单文件代码；
-- `client-go/`：Go 语言 Windows 客户端，支持提交审批、同步审批状态、自动守护和计划任务管理。
+- **`worker/`**：Cloudflare Workers + KV（全球分布式，免费额度）
+- **`server-node/`**：Node.js + SQLite（自托管，适合国内服务器）
+- **`client-go/`**：Go 语言 Windows 客户端（GUI + 守护进程）
+
+## 后端部署方式
+
+### 方式 1: Cloudflare Workers（推荐海外用户）
+
+**优势**：全球分布式、免费额度、自动 HTTPS、无需维护服务器
+
+详见：[worker/README.md](worker/README.md)
+
+### 方式 2: Node.js 服务器（推荐国内用户）
+
+**优势**：访问速度快、完全可控、无 CF 限制
+
+详见：[server-node/README.md](server-node/README.md)
+
+快速部署：
+
+```bash
+cd server-node
+npm install
+export ADMIN_TOKEN="your-strong-token"
+npm start
+```
 
 ## 重要说明
 
-本项目保留"设备 ID + 审批 + KV 持久化 + Windows 客户端 + 计划任务"架构。
+本项目保留"设备 ID + 审批 + 持久化 + Windows 客户端 + 计划任务"架构。
 
 客户端集成了网络守护功能，可自动监测并修复网络连接问题。
 
-## Worker 部署方式：Cloudflare Dashboard 直接粘贴
+## Cloudflare Worker 部署（方式 1）
 
 当前 Worker 侧只需要一个文件：
 
