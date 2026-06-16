@@ -43,6 +43,7 @@ func launchGUI() {
 	if err := (MainWindow{
 		AssignTo:   &mainWindow,
 		Title:      "Fuck0Trust",
+		Size:       Size{Width: 280, Height: 300},
 		MinSize:    Size{Width: 280, Height: 300},
 		MaxSize:    Size{Width: 280, Height: 300},
 		Layout:     VBox{MarginsZero: true, SpacingZero: true},
