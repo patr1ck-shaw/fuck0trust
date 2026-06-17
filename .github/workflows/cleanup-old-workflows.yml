@@ -19,5 +19,5 @@ jobs:
         token: ${{ github.token }}
         repository: ${{ github.repository }}
         retain_days: 0
-        keep_minimum_runs: 2
+        keep_minimum_runs: 1
         # 不指定 workflow_id 则清理所有工作流
