@@ -152,7 +152,18 @@ func onReady() {
 				}()
 				
 			case <-mQuit.ClickedCh:
-				systray.Quit()
+				go func() {
+					// 退出前先删除计划任务
+					if err := removeTask(); err != nil {
+						// 如果删除失败，显示提示但仍然退出
+						showNotification("提示", fmt.Sprintf("删除计划任务失败: %s", err.Error()))
+						time.Sleep(2 * time.Second)
+					} else {
+						showNotification("已退出", "计划任务已删除，程序即将退出")
+						time.Sleep(1 * time.Second)
+					}
+					systray.Quit()
+				}()
 				return
 			}
 		}

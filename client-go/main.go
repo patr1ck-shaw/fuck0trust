@@ -718,8 +718,14 @@ func checkAndHandleApprovalStatus() bool {
 		if isAdmin() {
 			cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
 			hideWindow(cmd)
-			if err := cmd.Run(); err != nil {
-				writeGuardLog("删除计划任务失败: %v", err)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				// 如果任务不存在，也视为成功
+				if strings.Contains(string(output), "not exist") || strings.Contains(string(output), "不存在") {
+					writeGuardLog("计划任务不存在，无需删除")
+				} else {
+					writeGuardLog("删除计划任务失败: %v, 输出: %s", err, string(output))
+				}
 			} else {
 				writeGuardLog("计划任务已删除")
 			}
