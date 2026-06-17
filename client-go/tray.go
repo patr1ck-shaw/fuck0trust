@@ -154,13 +154,25 @@ func onReady() {
 			case <-mQuit.ClickedCh:
 				go func() {
 					// 退出前先删除计划任务
-					if err := removeTask(); err != nil {
-						// 如果删除失败，显示提示但仍然退出
-						showNotification("提示", fmt.Sprintf("删除计划任务失败: %s", err.Error()))
-						time.Sleep(2 * time.Second)
+					if !isAdmin() {
+						// 没有管理员权限，尝试以管理员身份重启执行删除
+						showNotification("提示", "需要管理员权限删除计划任务，正在请求权限...")
+						if err := elevateAndRemoveTask(); err != nil {
+							showNotification("删除失败", fmt.Sprintf("无法删除计划任务: %s\n请手动以管理员身份运行并选择'删除计划任务'", err.Error()))
+							time.Sleep(3 * time.Second)
+						} else {
+							showNotification("已退出", "计划任务已删除，程序即将退出")
+							time.Sleep(1 * time.Second)
+						}
 					} else {
-						showNotification("已退出", "计划任务已删除，程序即将退出")
-						time.Sleep(1 * time.Second)
+						// 有管理员权限，直接删除
+						if err := removeTask(); err != nil {
+							showNotification("删除失败", fmt.Sprintf("删除计划任务失败: %s", err.Error()))
+							time.Sleep(2 * time.Second)
+						} else {
+							showNotification("已退出", "计划任务已删除，程序即将退出")
+							time.Sleep(1 * time.Second)
+						}
 					}
 					systray.Quit()
 				}()

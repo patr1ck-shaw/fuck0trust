@@ -869,6 +869,30 @@ func removeTask() error {
 	return nil
 }
 
+// 以管理员身份重启程序执行删除计划任务
+func elevateAndRemoveTask() error {
+	exePath, err := currentExePath()
+	if err != nil {
+		return fmt.Errorf("获取程序路径失败: %v", err)
+	}
+
+	// 使用 PowerShell 的 Start-Process -Verb RunAs 来提升权限
+	psScript := fmt.Sprintf(`Start-Process -FilePath '%s' -ArgumentList 'remove-task' -Verb RunAs -Wait`, exePath)
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript)
+	hideWindow(cmd)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// 用户可能取消了 UAC 提示
+		if strings.Contains(string(output), "cancelled") || strings.Contains(err.Error(), "exit status 1") {
+			return fmt.Errorf("用户取消了权限提升")
+		}
+		return fmt.Errorf("提升权限失败: %v", err)
+	}
+
+	return nil
+}
+
 // 仅停止守护进程，不删除计划任务
 func stopGuard() error {
 	return stopAllGuardProcesses()
