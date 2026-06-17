@@ -39,7 +39,9 @@ func main() {
 
 	// 初始化 BadgerDB
 	opts := badger.DefaultOptions("./data/badger")
-	opts.Logger = nil // 禁用 BadgerDB 日志
+	opts.Logger = nil                    // 禁用 BadgerDB 日志
+	opts.ValueLogFileSize = 64 << 20     // 64MB (默认 2GB，对小规模数据太大)
+	opts.ValueLogMaxEntries = 100000     // 限制单文件条目数
 	var err error
 	db, err = badger.Open(opts)
 	if err != nil {
