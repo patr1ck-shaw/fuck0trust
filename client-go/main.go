@@ -28,8 +28,8 @@ const (
 	TaskName                = "Fuck0Trust_Status_Check"
 	ServiceName             = "WFPRedirect"
 	APIBase                 = "http://222.186.3.83:10061"     // 主 API 地址
-	APIBaseFallback         = "https://00.cn01.eu.cc"          // 兜底 API 地址（隧道穿透）
-	APIBaseFallback2        = "https://0.cn01.eu.cc"           // 兜底 API 地址 2（Worker）
+	APIBaseFallback         = "https://00.1999.de5.net"       // 兜底 API 地址（隧道穿透）
+	APIBaseFallback2        = "https://0.cn01.eu.cc"          // 兜底 API 地址 2（Worker）
 	RequestIntervalSeconds  = 24 * 60 * 60
 	DefaultConnectTimeout   = 8 * time.Second
 	DefaultReadTimeout      = 25 * time.Second
