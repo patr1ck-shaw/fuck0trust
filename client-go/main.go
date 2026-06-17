@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug" // 👈 【已补上】用于打印崩溃时的精准红字代码行数
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -847,12 +848,7 @@ func removeTask() error {
 		return fmt.Errorf("删除系统计划任务需要管理员权限，请右键以管理员身份运行")
 	}
 
-	// 1. 先停止所有守护进程
-	if err := stopAllGuardProcesses(); err != nil {
-		fmt.Printf("警告：停止守护进程时出错: %v\n", err)
-	}
-
-	// 2. 删除计划任务
+	// 1. 先删除计划任务（这是最重要的）
 	cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
 	hideWindow(cmd)
 	output, err := cmd.CombinedOutput()
@@ -860,11 +856,17 @@ func removeTask() error {
 		// 如果任务不存在，也视为成功
 		if strings.Contains(string(output), "not exist") || strings.Contains(string(output), "不存在") {
 			fmt.Printf("计划任务不存在：%s\n", TaskName)
-			return nil
+		} else {
+			return fmt.Errorf("删除计划任务失败: %s", string(output))
 		}
-		return fmt.Errorf("删除计划任务失败: %s", string(output))
+	} else {
+		fmt.Printf("计划任务已删除：%s\n", TaskName)
 	}
-	fmt.Printf("计划任务已删除：%s\n", TaskName)
+
+	// 2. 再停止其他守护进程（排除当前进程）
+	if err := stopOtherGuardProcesses(); err != nil {
+		fmt.Printf("警告：停止守护进程时出错: %v\n", err)
+	}
 
 	return nil
 }
@@ -922,6 +924,53 @@ func stopAllGuardProcesses() error {
 
 	fmt.Println("所有守护进程已停止")
 	writeGuardLog("守护进程已被手动停止")
+	return nil
+}
+
+// 停止其他守护进程（排除当前进程）
+func stopOtherGuardProcesses() error {
+	exePath, err := currentExePath()
+	if err != nil {
+		return err
+	}
+	exeName := filepath.Base(exePath)
+	currentPID := os.Getpid()
+
+	// 使用 WMIC 获取所有同名进程的 PID
+	cmd := exec.Command("wmic", "process", "where", fmt.Sprintf("name='%s'", exeName), "get", "ProcessId")
+	hideWindow(cmd)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("查询进程失败: %v", err)
+	}
+
+	// 解析 PID 列表
+	lines := strings.Split(string(output), "\n")
+	var pidsToKill []int
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "ProcessId" {
+			continue
+		}
+		if pid, err := strconv.Atoi(line); err == nil && pid != currentPID {
+			pidsToKill = append(pidsToKill, pid)
+		}
+	}
+
+	// 逐个结束其他进程
+	if len(pidsToKill) == 0 {
+		fmt.Println("没有其他运行中的守护进程")
+		return nil
+	}
+
+	for _, pid := range pidsToKill {
+		cmd := exec.Command("taskkill", "/F", "/PID", strconv.Itoa(pid))
+		hideWindow(cmd)
+		cmd.Run() // 忽略错误，继续处理下一个
+	}
+
+	fmt.Printf("已停止 %d 个其他守护进程\n", len(pidsToKill))
+	writeGuardLog("其他守护进程已停止")
 	return nil
 }
 
