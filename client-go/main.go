@@ -849,7 +849,15 @@ func removeTask() error {
 	// 2. 删除计划任务
 	cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
 	hideWindow(cmd)
-	cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// 如果任务不存在，也视为成功
+		if strings.Contains(string(output), "not exist") || strings.Contains(string(output), "不存在") {
+			fmt.Printf("计划任务不存在：%s\n", TaskName)
+			return nil
+		}
+		return fmt.Errorf("删除计划任务失败: %s", string(output))
+	}
 	fmt.Printf("计划任务已删除：%s\n", TaskName)
 
 	return nil
