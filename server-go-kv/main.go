@@ -540,10 +540,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/admin",
 		HttpOnly: true,
-		Secure:   false, // 允许 HTTP 使用（如需 HTTPS，改为 true）
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400,
-	}
 		MaxAge:   86400,
 	}
 	http.SetCookie(w, cookie)
@@ -561,7 +559,7 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/admin",
 		HttpOnly: true,
-		Secure:   false, // 允许 HTTP 使用
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	}

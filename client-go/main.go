@@ -27,7 +27,8 @@ const (
 	AppName                 = "Fuck0TrustApprovalClient"
 	TaskName                = "Fuck0Trust_Status_Check"
 	ServiceName             = "WFPRedirect"
-	APIBase                 = "https://0.cn01.eu.cc"
+	APIBase                 = "https://00.cn01.eu.cc"     // 主 API 地址
+	APIBaseFallback         = "https://0.cn01.eu.cc"      // 兜底 API 地址
 	RequestIntervalSeconds  = 24 * 60 * 60
 	DefaultConnectTimeout   = 8 * time.Second
 	DefaultReadTimeout      = 25 * time.Second
@@ -373,9 +374,21 @@ func doWithRetry(method, url string, body string, timeout time.Duration) (*http.
 	return nil, nil, lastErr
 }
 
+// 带主备切换的 API 请求（优先主 API，失败后切换到兜底 API）
+func doAPIRequest(method, path string, body string, timeout time.Duration) (*http.Response, []byte, error) {
+	// 先尝试主 API
+	resp, data, err := doWithRetry(method, APIBase+path, body, timeout)
+	if err == nil {
+		return resp, data, nil
+	}
+
+	// 主 API 失败，尝试兜底 API
+	return doWithRetry(method, APIBaseFallback+path, body, timeout)
+}
+
 // 检查 API 可达性
 func checkAPIReachable(timeout time.Duration) error {
-	resp, _, err := doWithRetry("GET", APIBase+"/health", "", timeout)
+	resp, _, err := doAPIRequest("GET", "/health", "", timeout)
 	if err != nil {
 		return err
 	}
@@ -471,9 +484,9 @@ func addDefaultHeaders(req *http.Request) {
 
 // 从 API 刷新审批状态
 func refreshApprovalFromAPI(timeout time.Duration) (*StatusResponse, error) {
-	url := fmt.Sprintf("%s/api/status?deviceId=%s", APIBase, deviceID())
+	path := fmt.Sprintf("/api/status?deviceId=%s", deviceID())
 
-	resp, body, err := doWithRetry("GET", url, "", timeout)
+	resp, body, err := doAPIRequest("GET", path, "", timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -532,30 +545,17 @@ func requestApproval(note string) error {
 	if err != nil {
 		return err
 	}
-	
-	// 👈【全新修复】废除全局未分配的 httpClient，由局部隔离客户端彻底保护并发安全
-	client := newHTTPClient(DefaultConnectTimeout + DefaultReadTimeout)
-	req, err := http.NewRequest("POST", APIBase+"/api/request", strings.NewReader(string(jsonData)))
+
+	// 使用带主备切换的 API 请求
+	resp, body, err := doAPIRequest("POST", "/api/request", string(jsonData), DefaultConnectTimeout+DefaultReadTimeout)
 	if err != nil {
 		return err
 	}
-	addDefaultHeaders(req)
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("提交失败: %s", string(body))
 	}
-	
+
 	markRequestSubmitted()
 	return nil
 }
