@@ -27,8 +27,9 @@ const (
 	AppName                 = "Fuck0TrustApprovalClient"
 	TaskName                = "Fuck0Trust_Status_Check"
 	ServiceName             = "WFPRedirect"
-	APIBase                 = "https://00.cn01.eu.cc"     // 主 API 地址
-	APIBaseFallback         = "https://0.cn01.eu.cc"      // 兜底 API 地址
+	APIBase                 = "http://222.186.3.83:10061"     // 主 API 地址
+	APIBaseFallback         = "https://00.cn01.eu.cc"          // 兜底 API 地址（隧道穿透）
+	APIBaseFallback2        = "https://0.cn01.eu.cc"           // 兜底 API 地址 2（Worker）
 	RequestIntervalSeconds  = 24 * 60 * 60
 	DefaultConnectTimeout   = 8 * time.Second
 	DefaultReadTimeout      = 25 * time.Second
@@ -374,7 +375,7 @@ func doWithRetry(method, url string, body string, timeout time.Duration) (*http.
 	return nil, nil, lastErr
 }
 
-// 带主备切换的 API 请求（优先主 API，失败后切换到兜底 API）
+// 带主备切换的 API 请求（三级切换：主 API → 兜底 1 → 兜底 2）
 func doAPIRequest(method, path string, body string, timeout time.Duration) (*http.Response, []byte, error) {
 	// 先尝试主 API
 	resp, data, err := doWithRetry(method, APIBase+path, body, timeout)
@@ -382,8 +383,14 @@ func doAPIRequest(method, path string, body string, timeout time.Duration) (*htt
 		return resp, data, nil
 	}
 
-	// 主 API 失败，尝试兜底 API
-	return doWithRetry(method, APIBaseFallback+path, body, timeout)
+	// 主 API 失败，尝试兜底 API 1
+	resp, data, err = doWithRetry(method, APIBaseFallback+path, body, timeout)
+	if err == nil {
+		return resp, data, nil
+	}
+
+	// 兜底 API 1 失败，尝试兜底 API 2
+	return doWithRetry(method, APIBaseFallback2+path, body, timeout)
 }
 
 // 检查 API 可达性
