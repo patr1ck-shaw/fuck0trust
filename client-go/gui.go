@@ -207,6 +207,7 @@ func launchGUI() {
 	mainWindow.SizeChanged().Attach(func() {
 		if mainWindow != nil && mainWindow.Handle() != 0 {
 			if win.IsIconic(mainWindow.Handle()) {
+				// 最小化时隐藏到托盘
 				mainWindow.SetVisible(false)
 			}
 		}
@@ -245,9 +246,13 @@ func launchGUI() {
 		ni.SetVisible(true)
 	}
 
+	// 窗口关闭事件：点击 X 直接退出 GUI
 	mainWindow.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
-		*canceled = true
-		mainWindow.SetVisible(false)
+		// 不取消关闭，直接退出
+		if ni != nil {
+			ni.Dispose()
+		}
+		walk.App().Exit(0)
 	})
 
 	mainWindow.Starting().Attach(func() {
