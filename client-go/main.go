@@ -887,13 +887,26 @@ func isScheduledTaskNotFound(output []byte) bool {
 	if strings.Contains(lower, "not exist") ||
 		strings.Contains(lower, "does not exist") ||
 		strings.Contains(lower, "cannot find") ||
+		strings.Contains(lower, "system cannot find") ||
+		strings.Contains(lower, "找不到") ||
+		strings.Contains(lower, "指定的文件") ||
 		strings.Contains(lower, "不存在") {
 		return true
 	}
 
-	// Chinese Windows console output is often GBK encoded. Match "不存在" in GBK
-	// so a missing task is still treated as success instead of surfacing mojibake.
-	return bytes.Contains(output, []byte{0xb2, 0xbb, 0xb4, 0xe6, 0xd4, 0xda})
+	// Chinese Windows console output is often GBK encoded. Match common missing-task
+	// fragments so the GUI treats an absent task as already removed.
+	gbkMissingNeedles := [][]byte{
+		{0xb2, 0xbb, 0xb4, 0xe6, 0xd4, 0xda},                         // 不存在
+		{0xd5, 0xd2, 0xb2, 0xbb, 0xb5, 0xbd},                         // 找不到
+		{0xd6, 0xb8, 0xb6, 0xa8, 0xb5, 0xc4, 0xce, 0xc4, 0xbc, 0xfe}, // 指定的文件
+	}
+	for _, needle := range gbkMissingNeedles {
+		if bytes.Contains(output, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 // 以管理员身份重启程序执行删除计划任务
