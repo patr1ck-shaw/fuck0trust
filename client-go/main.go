@@ -1,6 +1,7 @@
 ﻿package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -854,10 +855,10 @@ func removeTask() error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// 如果任务不存在，也视为成功
-		if strings.Contains(string(output), "not exist") || strings.Contains(string(output), "不存在") {
+		if isScheduledTaskNotFound(output) {
 			fmt.Printf("计划任务不存在：%s\n", TaskName)
 		} else {
-			return fmt.Errorf("删除计划任务失败: %s", string(output))
+			return fmt.Errorf("删除计划任务失败，请确认以管理员身份运行，或手动删除计划任务：%s", TaskName)
 		}
 	} else {
 		fmt.Printf("计划任务已删除：%s\n", TaskName)
@@ -869,6 +870,20 @@ func removeTask() error {
 	}
 
 	return nil
+}
+
+func isScheduledTaskNotFound(output []byte) bool {
+	lower := strings.ToLower(string(output))
+	if strings.Contains(lower, "not exist") ||
+		strings.Contains(lower, "does not exist") ||
+		strings.Contains(lower, "cannot find") ||
+		strings.Contains(lower, "不存在") {
+		return true
+	}
+
+	// Chinese Windows console output is often GBK encoded. Match "不存在" in GBK
+	// so a missing task is still treated as success instead of surfacing mojibake.
+	return bytes.Contains(output, []byte{0xb2, 0xbb, 0xb4, 0xe6, 0xd4, 0xda})
 }
 
 // 以管理员身份重启程序执行删除计划任务

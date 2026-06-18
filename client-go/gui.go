@@ -384,7 +384,11 @@ func guiRemoveTask() {
 				walk.MsgBox(mainWindow, "删除失败", err.Error(), walk.MsgBoxIconError)
 				return
 			}
-			walk.MsgBox(mainWindow, "删除成功", fmt.Sprintf("✅ 任务已删除：%s", TaskName), walk.MsgBoxIconInformation)
+			walk.MsgBox(mainWindow, "删除成功", fmt.Sprintf("计划任务已删除或不存在：%s\n程序即将退出。", TaskName), walk.MsgBoxIconInformation)
+			if ni != nil {
+				ni.Dispose()
+			}
+			walk.App().Exit(0)
 		})
 	}()
 }
