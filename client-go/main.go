@@ -845,23 +845,33 @@ func installTask() error {
 
 // 删除计划任务并停止所有守护进程
 func removeTask() error {
-	if !isAdmin() {
-		return fmt.Errorf("删除系统计划任务需要管理员权限，请右键以管理员身份运行")
+	// 先检查任务是否存在。任务不存在时不需要管理员权限，直接视为已删除。
+	queryCmd := exec.Command("schtasks", "/Query", "/TN", TaskName)
+	hideWindow(queryCmd)
+	queryOutput, queryErr := queryCmd.CombinedOutput()
+	taskMissing := false
+	if queryErr != nil && isScheduledTaskNotFound(queryOutput) {
+		fmt.Printf("计划任务不存在：%s\n", TaskName)
+		taskMissing = true
+	} else if !isAdmin() {
+		return fmt.Errorf("检测到计划任务存在，删除系统计划任务需要管理员权限，请右键以管理员身份运行")
 	}
 
-	// 1. 先删除计划任务（这是最重要的）
-	cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
-	hideWindow(cmd)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// 如果任务不存在，也视为成功
-		if isScheduledTaskNotFound(output) {
-			fmt.Printf("计划任务不存在：%s\n", TaskName)
+	// 1. 删除计划任务（这是最重要的）
+	if !taskMissing {
+		cmd := exec.Command("schtasks", "/Delete", "/TN", TaskName, "/F")
+		hideWindow(cmd)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// 如果任务不存在，也视为成功
+			if isScheduledTaskNotFound(output) {
+				fmt.Printf("计划任务不存在：%s\n", TaskName)
+			} else {
+				return fmt.Errorf("删除计划任务失败，请确认以管理员身份运行，或手动删除计划任务：%s", TaskName)
+			}
 		} else {
-			return fmt.Errorf("删除计划任务失败，请确认以管理员身份运行，或手动删除计划任务：%s", TaskName)
+			fmt.Printf("计划任务已删除：%s\n", TaskName)
 		}
-	} else {
-		fmt.Printf("计划任务已删除：%s\n", TaskName)
 	}
 
 	// 2. 再停止其他守护进程（排除当前进程）
